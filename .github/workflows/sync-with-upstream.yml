@@ -1,0 +1,38 @@
+# 自动同步 fork main 与上游 proma-ai/Proma
+# - 每 6 小时自动检查一次，也可在 Actions 页面手动触发 (Run workflow)
+# - 只同步 main 分支（保持纯净 = 上游），魔改在 dev 分支不受影响
+name: Sync fork with upstream
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 合并上游 main 到 fork main
+        run: |
+          git remote add upstream https://github.com/proma-ai/Proma.git
+          git fetch upstream main
+          git checkout main
+          if git merge --no-edit upstream/main; then
+            echo "✅ fork main 已同步 (上游最新: $(git log -1 --format=%s upstream/main))"
+            git push origin main
+          else
+            echo "❌ 与上游合并出现冲突，请手动处理（本地执行 sync-upstream.sh 排查）"
+            git merge --abort
+            exit 1
+          fi
