@@ -60,20 +60,6 @@ import {
   createMarkdownImage,
   createMarkdownVideo,
 } from '@/components/diff/markdown-preview-extensions'
-import { SpeechButton } from '@/components/ai-elements/speech-button'
-import {
-  SCRATCH_PAD_VOICE_INPUT_ID,
-  VOICE_DICTATION_CLEAR_PREVIEW_EVENT,
-  VOICE_DICTATION_INSERT_EVENT,
-  VOICE_DICTATION_PREVIEW_EVENT,
-  getLastFocusedVoiceInputId,
-  isVoiceDictationTargetInput,
-  setLastFocusedVoiceInputId,
-} from '@/lib/voice-input-focus'
-import {
-  isVoiceDictationPreviewRangeCurrent,
-  type VoiceDictationPreviewRange,
-} from '@/lib/voice-dictation-preview'
 import { SelectionActionPopover } from '@/components/selection/SelectionActionPopover'
 import { SELECTION_ACTION_POPOVER_SELECTOR } from '@/lib/quoted-selection'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -166,7 +152,6 @@ function ScratchPadEditor({ variant }: ScratchPadEditorProps): React.ReactElemen
   const pointerSelectingRef = React.useRef(false)
   const captureTimerRef = React.useRef<number | null>(null)
   const openSideChatPendingRef = React.useRef(false)
-  const voicePreviewRef = React.useRef<VoiceDictationPreviewRange | null>(null)
 
   // Image lightbox state for edit functionality
   const [lightboxSrc, setLightboxSrc] = React.useState<string | null>(null)
@@ -801,119 +786,6 @@ function ScratchPadEditor({ variant }: ScratchPadEditorProps): React.ReactElemen
     }
   }, [editor, loaded, persistScrollPosition, store, variant])
 
-  // ===== 语音输入路由 =====
-
-  // 将预览范围映射到每次用户编辑后的文档位置，避免流式更新覆盖邻近输入。
-  React.useEffect(() => {
-    if (!editor) return
-
-    const mapPreviewRange = ({ transaction }: { transaction: Transaction }): void => {
-      const current = voicePreviewRef.current
-      if (!current || !transaction.docChanged) return
-      const from = transaction.mapping.mapResult(current.from, 1)
-      const to = transaction.mapping.mapResult(current.to, -1)
-      if (from.deleted && to.deleted) {
-        voicePreviewRef.current = null
-        return
-      }
-      voicePreviewRef.current = {
-        sessionId: current.sessionId,
-        from: from.pos,
-        to: Math.max(from.pos, to.pos),
-        text: current.text,
-      }
-    }
-
-    editor.on('transaction', mapPreviewRange)
-    return () => {
-      editor.off('transaction', mapPreviewRange)
-    }
-  }, [editor])
-
-  React.useEffect(() => {
-    if (!editor) return
-
-    const updatePreview = (event: Event): void => {
-      const { sessionId, text, targetInputId } = (event as CustomEvent<{ sessionId?: string; text?: string; targetInputId?: string | null }>).detail ?? {}
-      const previewText = text?.trim()
-      if (!sessionId || !previewText) return
-
-      const current = voicePreviewRef.current
-      if (current && current.sessionId !== sessionId) return
-      if (!current && !isVoiceDictationTargetInput(SCRATCH_PAD_VOICE_INPUT_ID, targetInputId)) return
-      const from = current?.from ?? editor.state.selection.from
-      const to = current?.to ?? editor.state.selection.to
-      editor.view.dispatch(editor.state.tr.insertText(previewText, from, to))
-      voicePreviewRef.current = { sessionId, from, to: from + previewText.length, text: previewText }
-      event.preventDefault()
-    }
-
-    const clearPreviewRange = (): void => {
-      const current = voicePreviewRef.current
-      if (!current) return
-      if (!editor.view.isDestroyed && isVoiceDictationPreviewRangeCurrent(
-        current,
-        (from, to) => editor.state.doc.textBetween(from, to, '\n', '\n'),
-      )) {
-        editor.view.dispatch(editor.state.tr.delete(current.from, current.to))
-      }
-      voicePreviewRef.current = null
-    }
-
-    const clearPreview = (event: Event): void => {
-      const { sessionId } = (event as CustomEvent<{ sessionId?: string }>).detail ?? {}
-      const current = voicePreviewRef.current
-      if (!current || current.sessionId !== sessionId) return
-      clearPreviewRange()
-      event.preventDefault()
-    }
-
-    window.addEventListener(VOICE_DICTATION_PREVIEW_EVENT, updatePreview)
-    window.addEventListener(VOICE_DICTATION_CLEAR_PREVIEW_EVENT, clearPreview)
-    return () => {
-      clearPreviewRange()
-      window.removeEventListener(VOICE_DICTATION_PREVIEW_EVENT, updatePreview)
-      window.removeEventListener(VOICE_DICTATION_CLEAR_PREVIEW_EVENT, clearPreview)
-    }
-  }, [editor])
-
-  // 编辑器获得焦点时，把"语音输入目标"标记为 Scratch Pad；点击语音按钮 / 触发快捷键时编辑器会失焦，
-  // 但 ID 保持不变，从而确保识别完成回填的文本会路由到这里而不是被 RichTextInput / agent draft 抢走。
-  React.useEffect(() => {
-    if (!editor) return
-    const dom = editor.view.dom
-    const handleFocus = (): void => {
-      setLastFocusedVoiceInputId(SCRATCH_PAD_VOICE_INPUT_ID)
-    }
-    dom.addEventListener('focus', handleFocus, true)
-    return () => dom.removeEventListener('focus', handleFocus, true)
-  }, [editor])
-
-  // 监听语音输入回填事件：仅在"上次聚焦目标"是 Scratch Pad 时消费，插入到当前光标位置
-  React.useEffect(() => {
-    if (!editor) return
-    const handler = (event: Event): void => {
-      const customEvent = event as CustomEvent<{ sessionId?: string; text?: string; targetInputId?: string | null }>
-      const text = customEvent.detail?.text?.trim()
-      if (!text) return
-
-      const preview = voicePreviewRef.current
-      if (preview && preview.sessionId === customEvent.detail?.sessionId) {
-        const end = preview.from + text.length
-        const transaction = editor.state.tr.insertText(text, preview.from, preview.to)
-        transaction.setSelection(TextSelection.create(transaction.doc, end))
-        editor.view.dispatch(transaction)
-        voicePreviewRef.current = null
-      } else {
-        if (!isVoiceDictationTargetInput(SCRATCH_PAD_VOICE_INPUT_ID, customEvent.detail?.targetInputId)) return
-        editor.chain().focus().insertContent({ type: 'text', text }).run()
-      }
-      event.preventDefault()
-    }
-    window.addEventListener(VOICE_DICTATION_INSERT_EVENT, handler)
-    return () => window.removeEventListener(VOICE_DICTATION_INSERT_EVENT, handler)
-  }, [editor])
-
   // ===== 粘贴处理 =====
 
   // 粘贴时：图片转 data URL 插入；含 markdown 标记的文本走 markdownToHtml 转 HTML 注入
@@ -969,12 +841,6 @@ function ScratchPadEditor({ variant }: ScratchPadEditorProps): React.ReactElemen
     ? 'flex-1 overflow-auto scrollbar-thin px-4 pt-4'
     : 'flex-1 overflow-auto scrollbar-thin px-8 pt-6'
   const contentClassName = isPane ? 'h-full max-w-none' : 'max-w-3xl mx-auto h-full'
-  const speechWrapperClassName = isPane
-    ? 'absolute left-1/2 -translate-x-1/2 bottom-9 z-20'
-    : 'absolute left-1/2 -translate-x-1/2 bottom-10 z-20'
-  const speechButtonClassName = isPane
-    ? 'size-9 rounded-full bg-background/95 border border-border/60 shadow-md backdrop-blur hover:bg-accent text-foreground/80'
-    : 'size-11 rounded-full bg-background/95 border border-border/60 shadow-md backdrop-blur hover:bg-accent text-foreground/80'
 
   return (
     <div ref={containerRef} className="relative flex flex-col h-full">
@@ -1042,10 +908,6 @@ function ScratchPadEditor({ variant }: ScratchPadEditorProps): React.ReactElemen
           onOpenChat={handleOpenSideChat}
         />
       )}
-      {/* 底部居中悬浮：圆形语音输入按钮 */}
-      <div className={speechWrapperClassName}>
-        <SpeechButton className={speechButtonClassName} voiceInputId={SCRATCH_PAD_VOICE_INPUT_ID} />
-      </div>
       <div className="h-[28px] border-t border-border/40 px-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button

@@ -117,7 +117,6 @@ function isMainRendererWindow(win: BrowserWindow): boolean {
   if (!url) return false
   if (url.startsWith('data:')) return false
   return !url.includes('window=quick-task')
-    && !url.includes('window=voice-dictation')
     && !url.includes('window=detached-preview')
 }
 

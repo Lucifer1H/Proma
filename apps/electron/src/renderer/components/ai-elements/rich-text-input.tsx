@@ -56,18 +56,6 @@ import {
 } from '@/components/agent/mention-suggestions'
 import { shouldConvertClipboardTextToAttachment } from '@/lib/clipboard-text-attachment'
 import { measurePerformance } from '@/lib/performance-monitor'
-import {
-  VOICE_DICTATION_CLEAR_PREVIEW_EVENT,
-  VOICE_DICTATION_INSERT_EVENT,
-  VOICE_DICTATION_PREVIEW_EVENT,
-  getLastFocusedVoiceInputId,
-  isVoiceDictationTargetInput,
-  setLastFocusedVoiceInputId,
-} from '@/lib/voice-input-focus'
-import {
-  isVoiceDictationPreviewRangeCurrent,
-  type VoiceDictationPreviewRange,
-} from '@/lib/voice-dictation-preview'
 
 // ===== 行数计算 =====
 
@@ -144,8 +132,6 @@ interface RichTextInputProps {
   onPasteLongText?: (text: string) => void
   /** 触发超长文本粘贴回调的字符数阈值 */
   longTextPasteThreshold?: number
-  /** 当前实例的语音输入 ID；同工具栏的 SpeechButton 必须使用相同 ID。 */
-  voiceInputId?: string
   /** 占位文字 */
   placeholder?: string
   /** 是否显示建议样式（斜体占位符） */
@@ -208,7 +194,6 @@ export const RichTextInput = forwardRef<RichTextInputHandle, RichTextInputProps>
   onPasteFiles,
   onPasteLongText,
   longTextPasteThreshold,
-  voiceInputId,
   placeholder = '有什么可以帮助到你的呢？',
   suggestionActive = false,
   className,
@@ -229,8 +214,6 @@ export const RichTextInput = forwardRef<RichTextInputHandle, RichTextInputProps>
   onAgentHistoryQuoteClick,
 }: RichTextInputProps, ref: React.Ref<RichTextInputHandle>): React.ReactElement {
   const [isExpanded, setIsExpanded] = useState(false)
-  const inputIdRef = useRef(voiceInputId ?? `rich-text-input-${Math.random().toString(36).slice(2)}`)
-  const voicePreviewRef = useRef<VoiceDictationPreviewRange | null>(null)
   // 手动折叠状态：用户主动折叠输入框
   const [isManuallyCollapsed, setIsManuallyCollapsed] = useState(false)
   // 跟踪 isExpanded 最新值（对比后再 setState，避免每键无谓 setState 触发重渲染）
@@ -698,10 +681,7 @@ export const RichTextInput = forwardRef<RichTextInputHandle, RichTextInputProps>
       // 监听 IME 输入状态
       handleDOMEvents: {
         keydown: (_view, event) => handleAgentHistoryQuoteKeyDown(event),
-        focus: () => {
-          setLastFocusedVoiceInputId(inputIdRef.current)
-          return false
-        },
+        focus: () => false,
         compositionstart: () => {
           isComposingRef.current = true
           return false
@@ -1089,108 +1069,6 @@ export const RichTextInput = forwardRef<RichTextInputHandle, RichTextInputProps>
       return true
     },
   }), [editor, flushPendingDraftSync])
-
-  // 将预览范围映射到每次用户编辑后的文档位置，避免流式更新覆盖邻近输入。
-  useEffect(() => {
-    if (!editor) return
-
-    const mapPreviewRange = ({ transaction }: { transaction: Transaction }): void => {
-      const current = voicePreviewRef.current
-      if (!current || !transaction.docChanged) return
-      const from = transaction.mapping.mapResult(current.from, 1)
-      const to = transaction.mapping.mapResult(current.to, -1)
-      if (from.deleted && to.deleted) {
-        voicePreviewRef.current = null
-        return
-      }
-      voicePreviewRef.current = {
-        sessionId: current.sessionId,
-        from: from.pos,
-        to: Math.max(from.pos, to.pos),
-        text: current.text,
-      }
-    }
-
-    editor.on('transaction', mapPreviewRange)
-    return () => {
-      editor.off('transaction', mapPreviewRange)
-    }
-  }, [editor])
-
-  // 语音输入在录音期间同步 ASR 的完整结果，停止时再以最终文本替换这段组合文本。
-  useEffect(() => {
-    if (!editor || disabled) return
-
-    const updatePreview = (event: Event): void => {
-      const { sessionId, text, targetInputId } = (event as CustomEvent<{ sessionId?: string; text?: string; targetInputId?: string | null }>).detail ?? {}
-      const previewText = text?.trim()
-      if (!sessionId || !previewText) return
-
-      const current = voicePreviewRef.current
-      if (current && current.sessionId !== sessionId) return
-      if (!current && !isVoiceDictationTargetInput(inputIdRef.current, targetInputId)) return
-      const from = current?.from ?? editor.state.selection.from
-      const to = current?.to ?? editor.state.selection.to
-      editor.view.dispatch(editor.state.tr.insertText(previewText, from, to))
-      voicePreviewRef.current = { sessionId, from, to: from + previewText.length, text: previewText }
-      event.preventDefault()
-    }
-
-    const clearPreviewRange = (): void => {
-      const current = voicePreviewRef.current
-      if (!current) return
-      if (!editor.view.isDestroyed && isVoiceDictationPreviewRangeCurrent(
-        current,
-        (from, to) => editor.state.doc.textBetween(from, to, '\n', '\n'),
-      )) {
-        editor.view.dispatch(editor.state.tr.delete(current.from, current.to))
-      }
-      voicePreviewRef.current = null
-    }
-
-    const clearPreview = (event: Event): void => {
-      const { sessionId } = (event as CustomEvent<{ sessionId?: string }>).detail ?? {}
-      const current = voicePreviewRef.current
-      if (!current || current.sessionId !== sessionId) return
-      clearPreviewRange()
-      event.preventDefault()
-    }
-
-    window.addEventListener(VOICE_DICTATION_PREVIEW_EVENT, updatePreview)
-    window.addEventListener(VOICE_DICTATION_CLEAR_PREVIEW_EVENT, clearPreview)
-    return () => {
-      clearPreviewRange()
-      window.removeEventListener(VOICE_DICTATION_PREVIEW_EVENT, updatePreview)
-      window.removeEventListener(VOICE_DICTATION_CLEAR_PREVIEW_EVENT, clearPreview)
-    }
-  }, [editor, disabled])
-
-  // 语音输入回填：优先插入到当前编辑器的光标位置。
-  useEffect(() => {
-    if (!editor || disabled) return
-
-    const handler = (event: Event): void => {
-      const customEvent = event as CustomEvent<{ sessionId?: string; text?: string; targetInputId?: string | null }>
-      const text = customEvent.detail?.text?.trim()
-      if (!text) return
-
-      const preview = voicePreviewRef.current
-      if (preview && preview.sessionId === customEvent.detail?.sessionId) {
-        const end = preview.from + text.length
-        const transaction = editor.state.tr.insertText(text, preview.from, preview.to)
-        transaction.setSelection(TextSelection.create(transaction.doc, end))
-        editor.view.dispatch(transaction)
-        voicePreviewRef.current = null
-      } else {
-        if (!isVoiceDictationTargetInput(inputIdRef.current, customEvent.detail?.targetInputId)) return
-        editor.chain().focus().insertContent(text).run()
-      }
-      event.preventDefault()
-    }
-
-    window.addEventListener(VOICE_DICTATION_INSERT_EVENT, handler)
-    return () => window.removeEventListener(VOICE_DICTATION_INSERT_EVENT, handler)
-  }, [editor, disabled])
 
   // 是否显示折叠按钮：启用 collapsible 且内容已自动扩展
   const showCollapseToggle = collapsible && isExpanded

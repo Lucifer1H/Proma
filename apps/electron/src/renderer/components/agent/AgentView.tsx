@@ -31,7 +31,6 @@ import { ModelSelector } from '@/components/chat/ModelSelector'
 import { AttachmentPreviewItem } from '@/components/chat/AttachmentPreviewItem'
 import { QuotedSelectionChip } from '@/components/diff/QuotedSelectionChip'
 import { RichTextInput, type RichTextInputHandle } from '@/components/ai-elements/rich-text-input'
-import { SpeechButton } from '@/components/ai-elements/speech-button'
 import { InputToolbarOverflow, type ToolbarItem } from '@/components/ai-elements/InputToolbarOverflow'
 import {
   inputToolbarActiveButtonClass,
@@ -735,8 +734,6 @@ export function AgentView({ sessionId, embedded = false }: AgentViewProps): Reac
   React.useEffect(() => {
     setHistoryQuoteNavigation(null)
   }, [sessionId])
-  // 父组件同步生成的 ID，同时提供给 RichTextInput 与 SpeechButton，避免工具栏 memo 捕获空值。
-  const agentVoiceInputId = React.useId()
   React.useEffect(() => {
     pendingFilesRef.current = pendingFiles
   }, [pendingFiles])
@@ -2835,9 +2832,7 @@ export function AgentView({ sessionId, embedded = false }: AgentViewProps): Reac
         />
       ),
     },
-    { key: 'speech', node: <SpeechButton className={inputToolbarButtonClass} voiceInputId={agentVoiceInputId} /> },
-    {
-      key: 'attach-content',
+    { key: 'attach-content',
       node: (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -2885,7 +2880,6 @@ export function AgentView({ sessionId, embedded = false }: AgentViewProps): Reac
     streaming,
     handleAttachContent,
     handleCompact,
-    agentVoiceInputId,
   ])
 
   const stopControl = (
@@ -3119,7 +3113,6 @@ export function AgentView({ sessionId, embedded = false }: AgentViewProps): Reac
               onSubmit={handleSend}
               onPasteFiles={handlePasteFiles}
               onPasteLongText={handlePasteLongText}
-              voiceInputId={agentVoiceInputId}
               longTextPasteThreshold={longTextPasteAsAttachmentEnabled ? LONG_TEXT_ATTACHMENT_THRESHOLD : undefined}
               placeholder={
                 agentChannelId && hasAvailableModel

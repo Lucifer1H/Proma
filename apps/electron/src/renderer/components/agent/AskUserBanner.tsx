@@ -11,15 +11,6 @@ import { Send, X } from 'lucide-react'
 import Markdown, { defaultUrlTransform } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Button } from '@/components/ui/button'
-import { SpeechButton } from '@/components/ai-elements/speech-button'
-import {
-  VOICE_DICTATION_CLEAR_PREVIEW_EVENT,
-  VOICE_DICTATION_INSERT_EVENT,
-  VOICE_DICTATION_PREVIEW_EVENT,
-  getLastFocusedVoiceInputId,
-  isVoiceDictationTargetInput,
-  setLastFocusedVoiceInputId,
-} from '@/lib/voice-input-focus'
 import {
   allPendingAskUserRequestsAtom,
   agentStreamingStatesAtom,
@@ -423,9 +414,7 @@ function QuestionCard({
   onSubmit: () => void
 }): React.ReactElement {
   const customInputRef = React.useRef<HTMLInputElement | null>(null)
-  const voiceInputIdRef = React.useRef(`ask-user-custom-${Math.random().toString(36).slice(2)}`)
   const customTextRef = React.useRef(answer.customText)
-  const previewRef = React.useRef<{ sessionId: string; start: number; text: string } | null>(null)
   const onCustomTextChangeRef = React.useRef(onCustomTextChange)
   const optionCount = question.options.length
   const previewOption = focusedIndex >= 0 && focusedIndex < optionCount
@@ -435,98 +424,6 @@ function QuestionCard({
 
   customTextRef.current = answer.customText
   onCustomTextChangeRef.current = onCustomTextChange
-
-  React.useEffect(() => {
-    if (!answer.showCustom) {
-      previewRef.current = null
-      return
-    }
-
-    const restoreSelection = (input: HTMLInputElement | null, cursor: number): void => {
-      requestAnimationFrame(() => {
-        input?.focus()
-        input?.setSelectionRange(cursor, cursor)
-      })
-    }
-
-    const discardPreview = (): void => {
-      const preview = previewRef.current
-      if (!preview) return
-      const currentText = customTextRef.current
-      if (currentText.slice(preview.start, preview.start + preview.text.length) === preview.text) {
-        onCustomTextChangeRef.current(`${currentText.slice(0, preview.start)}${currentText.slice(preview.start + preview.text.length)}`)
-      }
-      previewRef.current = null
-    }
-
-    const replacePreview = (sessionId: string, text: string, targetInputId: string | null | undefined): boolean => {
-      if (!isVoiceDictationTargetInput(voiceInputIdRef.current, targetInputId)) return false
-      const input = customInputRef.current
-      const currentText = customTextRef.current
-      const previous = previewRef.current
-      const canReplacePrevious = previous?.sessionId === sessionId &&
-        currentText.slice(previous.start, previous.start + previous.text.length) === previous.text
-      const start = canReplacePrevious ? previous.start : (input?.selectionStart ?? currentText.length)
-      const end = canReplacePrevious ? start + (previous?.text.length ?? 0) : (input?.selectionEnd ?? start)
-      const nextText = `${currentText.slice(0, start)}${text}${currentText.slice(end)}`
-
-      previewRef.current = { sessionId, start, text }
-      onCustomTextChangeRef.current(nextText)
-      restoreSelection(input, start + text.length)
-      return true
-    }
-
-    const previewHandler = (event: Event): void => {
-      const detail = (event as CustomEvent<{ sessionId?: string; text?: string; targetInputId?: string | null }>).detail
-      if (!detail?.sessionId) return
-      if (replacePreview(detail.sessionId, detail.text ?? '', detail.targetInputId)) {
-        event.preventDefault()
-      }
-    }
-
-    const clearPreviewHandler = (event: Event): void => {
-      const detail = (event as CustomEvent<{ sessionId?: string; targetInputId?: string | null }>).detail
-      const sessionId = detail?.sessionId
-      const preview = previewRef.current
-      if (!sessionId || preview?.sessionId !== sessionId) return
-      if (replacePreview(sessionId, '', detail?.targetInputId)) {
-        previewRef.current = null
-        event.preventDefault()
-      }
-    }
-
-    const insertHandler = (event: Event): void => {
-      const detail = (event as CustomEvent<{ sessionId?: string; text?: string; targetInputId?: string | null }>).detail
-      const text = detail?.text?.trim()
-      if (!text) return
-
-      const input = customInputRef.current
-      const currentText = customTextRef.current
-      const preview = previewRef.current
-      const canReplacePreview = !!detail?.sessionId && preview?.sessionId === detail.sessionId &&
-        currentText.slice(preview.start, preview.start + preview.text.length) === preview.text
-      if (!canReplacePreview && !isVoiceDictationTargetInput(voiceInputIdRef.current, detail?.targetInputId)) return
-      const start = canReplacePreview ? preview.start : (input?.selectionStart ?? currentText.length)
-      const end = canReplacePreview ? start + (preview?.text.length ?? 0) : (input?.selectionEnd ?? start)
-      const nextText = `${currentText.slice(0, start)}${text}${currentText.slice(end)}`
-      const nextCursor = start + text.length
-
-      previewRef.current = null
-      onCustomTextChangeRef.current(nextText)
-      event.preventDefault()
-      restoreSelection(input, nextCursor)
-    }
-
-    window.addEventListener(VOICE_DICTATION_PREVIEW_EVENT, previewHandler)
-    window.addEventListener(VOICE_DICTATION_CLEAR_PREVIEW_EVENT, clearPreviewHandler)
-    window.addEventListener(VOICE_DICTATION_INSERT_EVENT, insertHandler)
-    return () => {
-      discardPreview()
-      window.removeEventListener(VOICE_DICTATION_PREVIEW_EVENT, previewHandler)
-      window.removeEventListener(VOICE_DICTATION_CLEAR_PREVIEW_EVENT, clearPreviewHandler)
-      window.removeEventListener(VOICE_DICTATION_INSERT_EVENT, insertHandler)
-    }
-  }, [answer.showCustom])
 
   return (
     <div className="space-y-2">
@@ -602,7 +499,6 @@ function QuestionCard({
             placeholder="输入自定义答案..."
             value={answer.customText}
             onChange={(e) => onCustomTextChange(e.target.value)}
-            onFocus={() => setLastFocusedVoiceInputId(voiceInputIdRef.current)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault()
@@ -612,7 +508,6 @@ function QuestionCard({
             }}
             autoFocus
           />
-          <SpeechButton className="absolute right-1 top-1/2 -translate-y-1/2 size-6 rounded-full" voiceInputId={voiceInputIdRef.current} />
         </div>
       )}
 

@@ -121,12 +121,6 @@ import { handleNativeAgentIslandEvent, initAgentIslandService, disposeAgentIslan
 import { disposeMacAgentIslandNativeHost, startMacAgentIslandNativeHost, isMacAgentIslandNativeHostReady } from './lib/mac-agent-island-native-host'
 import { isAgentIslandServiceSupported, isMacAgentIslandSurfaceSupported } from './lib/macos-version'
 import { getWindowsAgentIslandSurface, processNotification, type SurfaceDeps } from './lib/windows-agent-island-surface'
-import {
-  createVoiceDictationWindow,
-  toggleVoiceDictationWindow,
-  destroyVoiceDictationWindow,
-  shouldSuppressVoiceDictationActivate,
-} from './lib/voice-dictation-window'
 import { registerGlobalShortcut, unregisterAllGlobalShortcuts } from './lib/global-shortcut-service'
 import { setPromaVersion } from '@proma/core'
 import { canRecoverRenderer, RENDERER_RECOVERY_WINDOW_MS } from './lib/renderer-process-recovery'
@@ -781,9 +775,6 @@ async function bootstrap(): Promise<void> {
 
   // 预创建快速任务窗口（隐藏状态，首次唤起秒开）
   safeRun('createQuickTaskWindow', createQuickTaskWindow)
-  if (getSettings().voiceDictation?.enabled === true) {
-    safeRun('createVoiceDictationWindow', createVoiceDictationWindow)
-  }
 
   // Agent Island 状态机在 macOS 和 Windows 都初始化；Swift surface 仅 macOS 26+。
   if (isAgentIslandServiceSupported()) {
@@ -812,11 +803,6 @@ async function bootstrap(): Promise<void> {
   safeRun('registerGlobalShortcut:show-main-window', () =>
     registerGlobalShortcut('show-main-window', showAndFocusMainWindow),
   )
-  safeRun('registerGlobalShortcut:voice-dictation', () =>
-    registerGlobalShortcut('voice-dictation', () => {
-      toggleVoiceDictationWindow({ targetIsProma: mainWindow?.isFocused() === true })
-    }),
-  )
 
   // 启动所有已注册的 Bridge（飞书/钉钉/微信等）
   await safeAwait('startAllBridges', () => startAllBridges())
@@ -828,9 +814,6 @@ async function bootstrap(): Promise<void> {
   safeRun('startPlanningNativeSyncCoordinator', startPlanningNativeSyncCoordinator)
 
   app.on('activate', () => {
-    if (shouldSuppressVoiceDictationActivate()) {
-      return
-    }
 
     // 直接检查 mainWindow 引用，避免 getAllWindows() 包含 DevTools 等其他窗口导致误判
     if (!mainWindow || mainWindow.isDestroyed()) {
@@ -928,7 +911,6 @@ app.on('before-quit', () => {
   unregisterAllGlobalShortcuts()
   // 销毁辅助窗口
   destroyQuickTaskWindow()
-  destroyVoiceDictationWindow()
   destroyAgentStatusHoverWindow()
   // 销毁原生 macOS 灵动岛服务（其他平台从未创建 surface）
   disposeMacAgentIslandNativeHost()

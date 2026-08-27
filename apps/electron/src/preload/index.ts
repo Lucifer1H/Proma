@@ -165,29 +165,11 @@ import type {
   AppSettings,
   QuickTaskSubmitInput,
   QuickTaskOpenSessionData,
-  VoiceDictationAudioChunkInput,
-  VoiceDictationCommitInput,
-  VoiceDictationCommitResult,
-  VoiceDictationPreviewInput,
-  VoiceDictationResizeInput,
-  VoiceDictationSettings,
-  VoiceDictationSettingsUpdate,
-  VoiceDictationShownEvent,
-  VoiceDictationStartInput,
-  VoiceDictationIndicatorEvent,
-  VoiceDictationStateEvent,
-  VoiceDictationStopInput,
-  VoiceDictationTestResult,
-  VoiceDictationToggleInput,
-  VoiceDictationTranscriptEvent,
-  VoiceDictationTextDeliveryInput,
-  VoiceDictationTextEvent,
-  MicPermissionResult,
   TrayCreateSessionData,
   TrayOpenAgentSessionData,
   NotificationSoundType,
 } from '../types'
-import { QUICK_TASK_IPC_CHANNELS, TRAY_IPC_CHANNELS, VOICE_DICTATION_IPC_CHANNELS, WINDOWS_AGENT_ISLAND_IPC_CHANNELS } from '../types'
+import { QUICK_TASK_IPC_CHANNELS, TRAY_IPC_CHANNELS, WINDOWS_AGENT_ISLAND_IPC_CHANNELS } from '../types'
 
 /**
  * 暴露给渲染进程的 API 接口定义
@@ -1145,60 +1127,6 @@ export interface ElectronAPI {
   onQuickTaskFocus: (callback: () => void) => () => void
   /** 订阅快速任务打开会话事件（主窗口接收，由渲染进程负责创建会话） */
   onQuickTaskOpenSession: (callback: (data: QuickTaskOpenSessionData) => void) => () => void
-
-  // ===== 语音输入 =====
-
-  /** 获取语音输入设置 */
-  getVoiceDictationSettings: () => Promise<VoiceDictationSettings>
-  /** 更新语音输入设置 */
-  updateVoiceDictationSettings: (updates: VoiceDictationSettingsUpdate) => Promise<VoiceDictationSettings>
-  /** 测试语音输入连接 */
-  testVoiceDictationConnection: (updates?: VoiceDictationSettingsUpdate) => Promise<VoiceDictationTestResult>
-  /** 唤起或停止语音输入浮窗 */
-  toggleVoiceDictation: (input?: VoiceDictationToggleInput) => Promise<void>
-  /** 开始语音输入会话 */
-  startVoiceDictation: (input: VoiceDictationStartInput) => Promise<void>
-  /** 发送语音音频分片 */
-  sendVoiceDictationAudio: (input: VoiceDictationAudioChunkInput) => Promise<void>
-  /** 上报实时麦克风音量，用于外部应用听写状态条。 */
-  reportVoiceDictationVolume: (volume: number) => void
-  /** 上报实时转写，用于外部应用听写状态条。 */
-  reportVoiceDictationTranscript: (text: string) => void
-  /** 停止语音输入会话 */
-  stopVoiceDictation: (input: VoiceDictationStopInput) => Promise<void>
-  /** 取消语音输入会话 */
-  cancelVoiceDictation: (input: VoiceDictationStopInput) => Promise<void>
-  /** 输出最终语音文本 */
-  commitVoiceDictation: (input: VoiceDictationCommitInput) => Promise<VoiceDictationCommitResult>
-  /** 更新 Proma 输入框中的临时识别文本 */
-  previewVoiceDictation: (input: VoiceDictationPreviewInput) => Promise<void>
-  /** 隐藏语音输入窗口 */
-  hideVoiceDictation: () => Promise<void>
-  /** 调整语音输入窗口高度 */
-  resizeVoiceDictation: (input: VoiceDictationResizeInput) => Promise<void>
-  /** 订阅语音输入窗口显示事件 */
-  onVoiceDictationShown: (callback: (event: VoiceDictationShownEvent) => void) => () => void
-  /** 订阅语音输入停止请求事件 */
-  onVoiceDictationToggleStop: (callback: () => void) => () => void
-  /** 订阅语音输入转写事件 */
-  onVoiceDictationTranscript: (callback: (event: VoiceDictationTranscriptEvent) => void) => () => void
-  /** 订阅语音输入状态事件 */
-  onVoiceDictationState: (callback: (event: VoiceDictationStateEvent) => void) => () => void
-  /** 订阅外部应用的听写状态条事件 */
-  onVoiceDictationIndicatorState: (callback: (event: VoiceDictationIndicatorEvent) => void) => () => void
-  /** 订阅主窗口插入语音文本事件 */
-  onVoiceDictationInsertText: (callback: (data: VoiceDictationTextEvent) => void) => () => void
-  /** 确认最终语音文本是否已被当前输入目标消费。 */
-  acknowledgeVoiceDictationTextDelivery: (input: VoiceDictationTextDeliveryInput) => void
-  /** 订阅主窗口临时识别文本更新事件 */
-  onVoiceDictationPreviewText: (callback: (data: VoiceDictationTextEvent) => void) => () => void
-  /** 订阅主窗口撤销临时识别文本事件 */
-  onVoiceDictationClearPreviewText: (callback: (data: Pick<VoiceDictationTextEvent, 'sessionId' | 'targetInputId'>) => void) => () => void
-
-  /** 检查麦克风权限状态 */
-  checkMicrophonePermission: () => Promise<MicPermissionResult>
-  /** 请求麦克风权限（仅 macOS 有效） */
-  requestMicrophonePermission: () => Promise<MicPermissionResult>
 
   // ===== 菜单栏 =====
 
@@ -2687,124 +2615,6 @@ const electronAPI: ElectronAPI = {
     const listener = (_: unknown, data: QuickTaskOpenSessionData): void => callback(data)
     ipcRenderer.on('quick-task:open-session', listener)
     return () => { ipcRenderer.removeListener('quick-task:open-session', listener) }
-  },
-
-  // ===== 语音输入 =====
-
-  getVoiceDictationSettings: () => {
-    return ipcRenderer.invoke(VOICE_DICTATION_IPC_CHANNELS.GET_SETTINGS)
-  },
-
-  updateVoiceDictationSettings: (updates: VoiceDictationSettingsUpdate) => {
-    return ipcRenderer.invoke(VOICE_DICTATION_IPC_CHANNELS.UPDATE_SETTINGS, updates)
-  },
-
-  testVoiceDictationConnection: (updates?: VoiceDictationSettingsUpdate) => {
-    return ipcRenderer.invoke(VOICE_DICTATION_IPC_CHANNELS.TEST_CONNECTION, updates)
-  },
-
-  toggleVoiceDictation: (input?: VoiceDictationToggleInput) => {
-    return ipcRenderer.invoke(VOICE_DICTATION_IPC_CHANNELS.TOGGLE, input)
-  },
-
-  startVoiceDictation: (input: VoiceDictationStartInput) => {
-    return ipcRenderer.invoke(VOICE_DICTATION_IPC_CHANNELS.START, input)
-  },
-
-  sendVoiceDictationAudio: (input: VoiceDictationAudioChunkInput) => {
-    return ipcRenderer.invoke(VOICE_DICTATION_IPC_CHANNELS.SEND_AUDIO, input)
-  },
-
-  reportVoiceDictationVolume: (volume: number) => {
-    ipcRenderer.send(VOICE_DICTATION_IPC_CHANNELS.REPORT_VOLUME, volume)
-  },
-
-  reportVoiceDictationTranscript: (text: string) => {
-    ipcRenderer.send(VOICE_DICTATION_IPC_CHANNELS.REPORT_TRANSCRIPT, text)
-  },
-
-  stopVoiceDictation: (input: VoiceDictationStopInput) => {
-    return ipcRenderer.invoke(VOICE_DICTATION_IPC_CHANNELS.STOP, input)
-  },
-
-  cancelVoiceDictation: (input: VoiceDictationStopInput) => {
-    return ipcRenderer.invoke(VOICE_DICTATION_IPC_CHANNELS.CANCEL, input)
-  },
-
-  commitVoiceDictation: (input: VoiceDictationCommitInput) => {
-    return ipcRenderer.invoke(VOICE_DICTATION_IPC_CHANNELS.COMMIT, input)
-  },
-
-  previewVoiceDictation: (input: VoiceDictationPreviewInput) => {
-    return ipcRenderer.invoke(VOICE_DICTATION_IPC_CHANNELS.PREVIEW, input)
-  },
-
-  hideVoiceDictation: () => {
-    return ipcRenderer.invoke(VOICE_DICTATION_IPC_CHANNELS.HIDE)
-  },
-
-  resizeVoiceDictation: (input: VoiceDictationResizeInput) => {
-    return ipcRenderer.invoke(VOICE_DICTATION_IPC_CHANNELS.RESIZE, input)
-  },
-
-  onVoiceDictationShown: (callback: (event: VoiceDictationShownEvent) => void) => {
-    const listener = (_: unknown, event: VoiceDictationShownEvent): void => callback(event)
-    ipcRenderer.on(VOICE_DICTATION_IPC_CHANNELS.SHOWN, listener)
-    return () => { ipcRenderer.removeListener(VOICE_DICTATION_IPC_CHANNELS.SHOWN, listener) }
-  },
-
-  onVoiceDictationToggleStop: (callback: () => void) => {
-    const listener = (): void => callback()
-    ipcRenderer.on(VOICE_DICTATION_IPC_CHANNELS.TOGGLE_STOP, listener)
-    return () => { ipcRenderer.removeListener(VOICE_DICTATION_IPC_CHANNELS.TOGGLE_STOP, listener) }
-  },
-
-  onVoiceDictationTranscript: (callback: (event: VoiceDictationTranscriptEvent) => void) => {
-    const listener = (_: unknown, event: VoiceDictationTranscriptEvent): void => callback(event)
-    ipcRenderer.on(VOICE_DICTATION_IPC_CHANNELS.TRANSCRIPT, listener)
-    return () => { ipcRenderer.removeListener(VOICE_DICTATION_IPC_CHANNELS.TRANSCRIPT, listener) }
-  },
-
-  onVoiceDictationState: (callback: (event: VoiceDictationStateEvent) => void) => {
-    const listener = (_: unknown, event: VoiceDictationStateEvent): void => callback(event)
-    ipcRenderer.on(VOICE_DICTATION_IPC_CHANNELS.STATE, listener)
-    return () => { ipcRenderer.removeListener(VOICE_DICTATION_IPC_CHANNELS.STATE, listener) }
-  },
-
-  onVoiceDictationIndicatorState: (callback: (event: VoiceDictationIndicatorEvent) => void) => {
-    const listener = (_: unknown, event: VoiceDictationIndicatorEvent): void => callback(event)
-    ipcRenderer.on(VOICE_DICTATION_IPC_CHANNELS.INDICATOR_STATE, listener)
-    return () => { ipcRenderer.removeListener(VOICE_DICTATION_IPC_CHANNELS.INDICATOR_STATE, listener) }
-  },
-
-  onVoiceDictationInsertText: (callback: (data: VoiceDictationTextEvent) => void) => {
-    const listener = (_: unknown, data: VoiceDictationTextEvent): void => callback(data)
-    ipcRenderer.on(VOICE_DICTATION_IPC_CHANNELS.INSERT_TEXT, listener)
-    return () => { ipcRenderer.removeListener(VOICE_DICTATION_IPC_CHANNELS.INSERT_TEXT, listener) }
-  },
-
-  acknowledgeVoiceDictationTextDelivery: (input: VoiceDictationTextDeliveryInput) => {
-    ipcRenderer.send(VOICE_DICTATION_IPC_CHANNELS.ACK_INSERT_TEXT, input)
-  },
-
-  onVoiceDictationPreviewText: (callback: (data: VoiceDictationTextEvent) => void) => {
-    const listener = (_: unknown, data: VoiceDictationTextEvent): void => callback(data)
-    ipcRenderer.on(VOICE_DICTATION_IPC_CHANNELS.PREVIEW_TEXT, listener)
-    return () => { ipcRenderer.removeListener(VOICE_DICTATION_IPC_CHANNELS.PREVIEW_TEXT, listener) }
-  },
-
-  onVoiceDictationClearPreviewText: (callback: (data: Pick<VoiceDictationTextEvent, 'sessionId' | 'targetInputId'>) => void) => {
-    const listener = (_: unknown, data: Pick<VoiceDictationTextEvent, 'sessionId' | 'targetInputId'>): void => callback(data)
-    ipcRenderer.on(VOICE_DICTATION_IPC_CHANNELS.CLEAR_PREVIEW_TEXT, listener)
-    return () => { ipcRenderer.removeListener(VOICE_DICTATION_IPC_CHANNELS.CLEAR_PREVIEW_TEXT, listener) }
-  },
-
-  checkMicrophonePermission: () => {
-    return ipcRenderer.invoke(VOICE_DICTATION_IPC_CHANNELS.CHECK_MIC_PERMISSION)
-  },
-
-  requestMicrophonePermission: () => {
-    return ipcRenderer.invoke(VOICE_DICTATION_IPC_CHANNELS.REQUEST_MIC_PERMISSION)
   },
 
   onTrayOpenAgentSession: (callback: (data: TrayOpenAgentSessionData) => void) => {

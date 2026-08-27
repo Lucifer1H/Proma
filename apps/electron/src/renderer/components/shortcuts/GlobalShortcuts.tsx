@@ -58,11 +58,6 @@ import {
 import { getFileParentPath } from '@/lib/file-utils'
 import { getLastInteractedStopTarget, resolveStopGenerationTarget } from '@/lib/stop-generation-target'
 import { CLOSE_ACTIVE_RIGHT_WORKSPACE_TAB_EVENT } from '@/lib/right-workspace-events'
-import {
-  shouldFallbackVoiceDictationToActiveTab,
-  VOICE_DICTATION_CLEAR_PREVIEW_EVENT,
-  VOICE_DICTATION_PREVIEW_EVENT,
-} from '@/lib/voice-input-focus'
 
 /**
  * 快捷键初始化 + 全局 Handler 注册
@@ -377,116 +372,6 @@ export function GlobalShortcuts(): null {
       }
     })
     return cleanup
-  }, [store])
-
-  // ===== 语音输入 → 写入当前 Proma 输入框 =====
-
-  useEffect(() => {
-    const cleanupPreview = window.electronAPI.onVoiceDictationPreviewText((data) => {
-      if (!data.text.trim()) return
-      window.dispatchEvent(new CustomEvent(VOICE_DICTATION_PREVIEW_EVENT, { detail: data }))
-    })
-    const cleanupClearPreview = window.electronAPI.onVoiceDictationClearPreviewText((data) => {
-      window.dispatchEvent(new CustomEvent(VOICE_DICTATION_CLEAR_PREVIEW_EVENT, { detail: data }))
-    })
-    const cleanup = window.electronAPI.onVoiceDictationInsertText((data) => {
-      const acknowledgeDelivery = (delivered: boolean): void => {
-        window.electronAPI.acknowledgeVoiceDictationTextDelivery({
-          sessionId: data.sessionId,
-          delivered,
-        })
-      }
-      const trimmed = data.text.trim()
-      if (!trimmed) {
-        acknowledgeDelivery(false)
-        return
-      }
-
-      const insertedAtCursor = !window.dispatchEvent(new CustomEvent('proma:insert-voice-dictation-text', {
-        cancelable: true,
-        detail: { ...data, text: trimmed },
-      }))
-      if (insertedAtCursor) {
-        acknowledgeDelivery(true)
-        window.dispatchEvent(new CustomEvent('proma:focus-input'))
-        return
-      }
-
-      if (!shouldFallbackVoiceDictationToActiveTab(data.targetInputId)) {
-        console.warn('[语音输入] 冻结的输入目标已不可用，已丢弃听写结果:', data.targetInputId)
-        acknowledgeDelivery(false)
-        return
-      }
-
-      const tabs = store.get(tabsAtom)
-      const activeTabId = store.get(activeTabIdAtom)
-      const activeTab = tabs.find((tab) => tab.id === activeTabId)
-      const currentMode = store.get(appModeAtom)
-      const fallbackTarget =
-        currentMode === 'agent'
-          ? { type: 'agent' as const, sessionId: store.get(currentAgentSessionIdAtom) }
-          : { type: 'chat' as const, sessionId: store.get(currentConversationIdAtom) }
-      const target = activeTab ?? fallbackTarget
-
-      if (!target.sessionId) {
-        acknowledgeDelivery(false)
-        return
-      }
-
-      store.set(activeViewAtom, 'conversations')
-
-      if (target.type === 'agent' || target.type === 'preview') {
-        const sessionId = target.sessionId
-        store.set(appModeAtom, 'agent')
-        store.set(currentAgentSessionIdAtom, sessionId)
-        store.set(agentSessionDraftsAtom, (prev) => {
-          const map = new Map(prev)
-          const current = map.get(sessionId) ?? ''
-          map.set(sessionId, current ? `${current}\n${trimmed}` : trimmed)
-          return map
-        })
-        store.set(agentSessionDraftHtmlAtom, (prev) => {
-          const map = new Map(prev)
-          map.delete(sessionId)
-          return map
-        })
-        store.set(agentSessionDraftSyncVersionsAtom, (prev) => {
-          const map = new Map(prev)
-          map.set(sessionId, (map.get(sessionId) ?? 0) + 1)
-          return map
-        })
-        window.dispatchEvent(new CustomEvent('proma:focus-input'))
-        acknowledgeDelivery(true)
-        return
-      }
-
-      if (target.type === 'chat') {
-        const conversationId = target.sessionId
-        store.set(appModeAtom, 'chat')
-        store.set(currentConversationIdAtom, conversationId)
-        store.set(conversationDraftsAtom, (prev) => {
-          const map = new Map(prev)
-          const current = map.get(conversationId) ?? ''
-          map.set(conversationId, current ? `${current}\n${trimmed}` : trimmed)
-          return map
-        })
-        store.set(conversationDraftSyncVersionsAtom, (prev) => {
-          const map = new Map(prev)
-          map.set(conversationId, (map.get(conversationId) ?? 0) + 1)
-          return map
-        })
-        window.dispatchEvent(new CustomEvent('proma:focus-input'))
-        acknowledgeDelivery(true)
-        return
-      }
-
-      acknowledgeDelivery(false)
-    })
-    return () => {
-      cleanupPreview()
-      cleanupClearPreview()
-      cleanup()
-    }
   }, [store])
 
   // ===== 菜单栏 → 打开 / 创建会话 =====

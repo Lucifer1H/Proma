@@ -5,7 +5,7 @@
  * - RichTextInput (TipTap 编辑器) 替代原生 textarea
  * - 附件预览区域（pendingAttachments 缩略图列表）
  * - Footer 工具栏（左右分布）：
- *   左侧：Paperclip 附件按钮、ModelSelector、ThinkingButton、SpeechButton、ContextSettingsPopover、ClearContextButton
+ *   左侧：Paperclip 附件按钮、ModelSelector、ThinkingButton、ContextSettingsPopover、ClearContextButton
  *   右侧：Send/Stop 按钮
  * - 拖放文件支持（onDragOver/onDragLeave/onDrop）
  * - 监听 proma:clear-context 和 proma:focus-input 自定义事件
@@ -22,7 +22,6 @@ import { ToolSelectorPopover } from './ToolSelectorPopover'
 import { AttachmentPreviewItem } from './AttachmentPreviewItem'
 import { QuotedSelectionChip } from '@/components/diff/QuotedSelectionChip'
 import { RichTextInput } from '@/components/ai-elements/rich-text-input'
-import { SpeechButton } from '@/components/ai-elements/speech-button'
 import { InputToolbarOverflow, type ToolbarItem } from '@/components/ai-elements/InputToolbarOverflow'
 import {
   inputToolbarActiveButtonClass,
@@ -107,7 +106,6 @@ export function ChatInput({ conversationId, streaming, pendingAttachments, onSet
   const [thinkingEnabled, setThinkingEnabled] = useConversationThinkingEnabled()
   const setPendingAttachments = onSetPendingAttachments
   const [isDragOver, setIsDragOver] = React.useState(false)
-  const chatVoiceInputId = React.useId()
 
   const canSend = (content.trim().length > 0 || pendingAttachments.length > 0)
     && selectedModel !== null
@@ -381,11 +379,10 @@ export function ChatInput({ conversationId, streaming, pendingAttachments, onSet
         </Tooltip>
       ),
     },
-    { key: 'speech', node: <SpeechButton className={inputToolbarButtonClass} voiceInputId={chatVoiceInputId} /> },
     { key: 'tools', node: <ToolSelectorPopover /> },
     { key: 'context', node: <ContextSettingsPopover /> },
     { key: 'clear', node: <ClearContextButton onClick={onClearContext} /> },
-  ], [handleOpenFileDialog, thinkingEnabled, setThinkingEnabled, onClearContext, chatVoiceInputId])
+  ], [handleOpenFileDialog, thinkingEnabled, setThinkingEnabled, onClearContext])
 
   const trailingNode = streaming ? (
     <Tooltip>
@@ -478,7 +475,6 @@ export function ChatInput({ conversationId, streaming, pendingAttachments, onSet
             onChange={setContentFromEditor}
             onSubmit={handleSend}
             onPasteFiles={handlePasteFiles}
-            voiceInputId={chatVoiceInputId}
             placeholder={sendWithCmdEnter ? '输入消息... (⌘/Ctrl+Enter 发送，Enter 换行)' : '输入消息... (Enter 发送，Shift+Enter 换行)'}
             autoFocusTrigger={conversationId}
             draftScopeKey={conversationId}

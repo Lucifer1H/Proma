@@ -21,7 +21,6 @@ import {
   GraduationCap,
   ArrowLeft,
   Keyboard,
-  Mic,
   HardDriveDownload,
   HardDrive,
 } from "lucide-react";
@@ -62,7 +61,6 @@ import { PromptSettings } from "./PromptSettings";
 import { ToolSettings } from "./ToolSettings";
 import { BotHubSettings } from "./BotHubSettings";
 import { ShortcutSettings } from "./ShortcutSettings";
-import { VoiceInputSettings } from "./VoiceInputSettings";
 import { MigrationSettings } from "./MigrationSettings";
 import { StorageSettings } from "./StorageSettings";
 import { OnboardingSettings } from "./OnboardingSettings";
@@ -109,11 +107,6 @@ const ONBOARDING_TAB: TabItem = {
   label: "Proma 新手引导",
   icon: <GraduationCap size={16} />,
 };
-const VOICE_INPUT_TAB: TabItem = {
-  id: "voice-input",
-  label: "语音输入",
-  icon: <Mic size={16} />,
-};
 /** 尾部 Tabs */
 const TAIL_TABS: TabItem[] = [
   { id: "migration", label: "数据迁移", icon: <HardDriveDownload size={16} /> },
@@ -146,8 +139,6 @@ function renderTabContent(tab: SettingsTab): React.ReactElement {
       return <BotHubSettings />;
     case "shortcuts":
       return <ShortcutSettings />;
-    case "voice-input":
-      return <VoiceInputSettings />;
     case "migration":
       return <MigrationSettings />;
     case "storage":
@@ -275,7 +266,6 @@ export function SettingsPanel({
       return [
         ...BASE_TABS,
         TOOLS_TAB,
-        VOICE_INPUT_TAB,
         BOTS_TAB,
         TUTORIAL_TAB,
         SHORTCUTS_TAB,
@@ -285,7 +275,6 @@ export function SettingsPanel({
     return [
       ...BASE_TABS,
       TOOLS_TAB,
-      VOICE_INPUT_TAB,
       BOTS_TAB,
       TUTORIAL_TAB,
       SHORTCUTS_TAB,

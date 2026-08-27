@@ -22,16 +22,9 @@ const registeredAccelerators = new Map<string, string>()
 const GLOBAL_SHORTCUT_DEFAULTS: Record<string, { mac: string; win: string }> = {
   'quick-task': { mac: 'Alt+Space', win: 'Alt+Space' },
   'show-main-window': { mac: 'CommandOrControl+Shift+P', win: 'CommandOrControl+Shift+P' },
-  'voice-dictation': { mac: 'Ctrl+`', win: 'Ctrl+`' },
 }
 
 const isMac = process.platform === 'darwin'
-const VOICE_DICTATION_SHORTCUT_ID = 'voice-dictation'
-
-function shouldRegisterGlobalShortcut(id: string): boolean {
-  if (id !== VOICE_DICTATION_SHORTCUT_ID) return true
-  return getSettings().voiceDictation?.enabled === true
-}
 
 /**
  * 获取某全局快捷键当前生效的 Electron accelerator 字符串
@@ -76,11 +69,6 @@ function getGlobalAccelerator(id: string): string | null {
 function registerOne(id: string): boolean {
   const callback = globalCallbacks.get(id)
   if (!callback) return false
-
-  if (!shouldRegisterGlobalShortcut(id)) {
-    console.log(`[全局快捷键] 跳过注册: ${id} 未启用`)
-    return false
-  }
 
   const accelerator = getGlobalAccelerator(id)
   if (accelerator === null) {

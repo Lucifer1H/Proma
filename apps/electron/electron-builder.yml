@@ -108,7 +108,6 @@ mac:
   entitlements: resources/entitlements.mac.plist
   entitlementsInherit: resources/entitlements.mac.plist
   extendInfo:
-    NSMicrophoneUsageDescription: "Proma 需要访问麦克风，用于将你的语音实时转写为文本。"
     NSCalendarsFullAccessUsageDescription: "Proma 需要访问你的日历，以显示、创建和同步你选择的日程。"
     NSRemindersFullAccessUsageDescription: "Proma 需要访问你的提醒事项，以同步 Todo 和你选择的列表。"
   # 架构由 CLI 参数控制（CI 矩阵分别传 --arm64 / --x64），
