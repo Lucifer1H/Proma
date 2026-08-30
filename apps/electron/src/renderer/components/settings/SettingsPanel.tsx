@@ -65,7 +65,6 @@ import { BotHubSettings } from "./BotHubSettings";
 import { ShortcutSettings } from "./ShortcutSettings";
 import { MigrationSettings } from "./MigrationSettings";
 import { StorageSettings } from "./StorageSettings";
-import { OnboardingSettings } from "./OnboardingSettings";
 import { useOpenSession } from '@/hooks/useOpenSession'
 
 /** 设置 Tab 定义 */
@@ -104,17 +103,11 @@ const SHORTCUTS_TAB: TabItem = {
   label: "快捷键管理",
   icon: <Keyboard size={16} />,
 };
-const ONBOARDING_TAB: TabItem = {
-  id: "onboarding",
-  label: "Proma 新手引导",
-  icon: <GraduationCap size={16} />,
-};
 /** 尾部 Tabs */
 const TAIL_TABS: TabItem[] = [
   { id: "migration", label: "数据迁移", icon: <HardDriveDownload size={16} /> },
   { id: "storage", label: "磁盘管理", icon: <HardDrive size={16} /> },
   { id: "appearance", label: "外观设置", icon: <Palette size={16} /> },
-  ONBOARDING_TAB,
   { id: "about", label: "关于/更新", icon: <Info size={16} /> },
 ];
 
@@ -145,8 +138,6 @@ function renderTabContent(tab: SettingsTab): React.ReactElement {
       return <MigrationSettings />;
     case "storage":
       return <StorageSettings />;
-    case "onboarding":
-      return <OnboardingSettings />;
     default:
       // tutorial 等特殊 tab 由 handleTabChange 拦截打开主区 Tab，不会在此渲染
       return <GeneralSettings />;
