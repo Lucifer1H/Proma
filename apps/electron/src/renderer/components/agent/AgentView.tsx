@@ -3147,8 +3147,8 @@ export function AgentView({ sessionId, embedded = false }: AgentViewProps): Reac
               placeholder={
                 agentChannelId && hasAvailableModel
                   ? sendWithCmdEnter
-                    ? '输入消息...（@ 引用文件，/ 调用 Skill，# 使用 MCP，& 引用会话，～ 引用待办/日程；⌘/Ctrl+Enter 发送）'
-                    : '输入消息...（@ 引用文件，/ 调用 Skill，# 使用 MCP，& 引用会话，～ 引用待办/日程；Enter 发送）'
+                    ? '输入消息...（@ 引用文件，/ 调用 Skill 或 /goal 设置目标，# 使用 MCP，& 引用会话，～ 引用待办/日程；⌘/Ctrl+Enter 发送）'
+                    : '输入消息...（@ 引用文件，/ 调用 Skill 或 /goal 设置目标，# 使用 MCP，& 引用会话，～ 引用待办/日程；Enter 发送）'
                   : !agentChannelId
                     ? '请先选择模型'
                     : '暂无可用模型，请先在设置中启用渠道'

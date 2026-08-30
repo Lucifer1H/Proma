@@ -144,11 +144,6 @@ function createMentionSuggestion<T>(
               keyExtractor: config.keyExtractor,
               renderItem: config.renderItem,
               onSelect: (item: T) => {
-                // 目标是文本命令而非 chip：替换触发符并插入 /goal 前缀，等待用户输入目标内容
-                if ((item as { id?: string }).id === 'goal') {
-                  props.editor.chain().focus().insertContentAt(props.range, '/goal ').run()
-                  return
-                }
                 const cmd = config.toCommand(item)
                 props.command({ ...cmd, mentionSuggestionChar: config.char })
                 props.editor.chain().insertContent(' ').run()
@@ -178,11 +173,6 @@ function createMentionSuggestion<T>(
           renderer?.updateProps({
             items: props.items,
             onSelect: (item: T) => {
-              // 目标是文本命令而非 chip：替换触发符并插入 /goal 前缀，等待用户输入目标内容
-              if ((item as { id?: string }).id === 'goal') {
-                props.editor.chain().focus().insertContentAt(props.range, '/goal ').run()
-                return
-              }
               const cmd = config.toCommand(item)
               props.command({ ...cmd, mentionSuggestionChar: config.char })
               props.editor.chain().insertContent(' ').run()

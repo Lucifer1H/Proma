@@ -553,7 +553,7 @@ export function htmlToMarkdown(
           if (agentHistoryQuote) serializedMention = `&quote:${agentHistoryQuote}`
           else if (referenceType === 'todo') serializedMention = serializeNamedMention('&todo', dataId, dataLabel)
           else if (referenceType === 'calendar_event') serializedMention = serializeNamedMention('&calendar_event', dataId, dataLabel)
-          else if (suggestionChar === '/') serializedMention = `/skill:${dataId}`
+          else if (suggestionChar === '/') serializedMention = dataId === 'goal' ? `/goal` : `/skill:${dataId}`
           else if (suggestionChar === '#') serializedMention = `#mcp:${dataId}`
           else if (suggestionChar === '&') serializedMention = serializeNamedMention('&session', dataId, dataLabel)
           else {
