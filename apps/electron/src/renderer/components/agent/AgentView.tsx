@@ -17,7 +17,7 @@ import * as React from 'react'
 import { unstable_batchedUpdates } from 'react-dom'
 import { useAtom, useAtomValue, useSetAtom, useStore } from 'jotai'
 import { toast } from 'sonner'
-import { CornerDownLeft, Square, Settings, X, Copy, Check, Brain, Sparkles, ListTodo, Paperclip } from 'lucide-react'
+import { CornerDownLeft, Crosshair, Square, Settings, X, Copy, Check, Brain, Sparkles, ListTodo, Paperclip } from 'lucide-react'
 import { AgentMessages, type AgentHistoryQuoteNavigationRequest } from './AgentMessages'
 import { AgentHeader } from './AgentHeader'
 import { AgentMessageQueue } from './AgentMessageQueue'
@@ -107,6 +107,7 @@ import {
   agentDefaultPermissionModeAtom,
   sessionPersistedPermissionModeAtom,
   agentSessionPathMapAtom,
+  agentSessionGoalAtom,
   allPendingAskUserRequestsAtom,
   allPendingPermissionRequestsAtom,
   allPendingExitPlanRequestsAtom,
@@ -615,6 +616,45 @@ export function AgentView({ sessionId, embedded = false }: AgentViewProps): Reac
     ? (wsAttachedFilesMap.get(currentWorkspaceId) ?? EMPTY_STRING_ARRAY)
     : EMPTY_STRING_ARRAY
 
+  // ===== 会话目标（Codex 风格）=====
+  const [sessionGoals, setSessionGoals] = useAtom(agentSessionGoalAtom)
+  const currentGoal = sessionGoals[sessionId]
+
+  /** 设置会话目标：写入本地状态 + 主进程持久化到会话元数据。 */
+  const setSessionGoal = React.useCallback((sid: string, goalText: string): void => {
+    setSessionGoals((prev) => ({ ...prev, [sid]: goalText }))
+    void window.electronAPI.setAgentSessionGoal(sid, goalText).catch((error) => {
+      console.error('[会话目标] 保存失败:', error)
+    })
+  }, [setSessionGoals])
+
+  /** 清除会话目标。 */
+  const clearSessionGoal = React.useCallback((sid: string): void => {
+    void window.electronAPI.setAgentSessionGoal(sid, '')
+      .then(() => {
+        setSessionGoals((prev) => {
+          if (!(sid in prev)) return prev
+          const next = { ...prev }
+          delete next[sid]
+          return next
+        })
+      })
+      .catch((error) => {
+        console.error('[会话目标] 清除失败:', error)
+      })
+  }, [setSessionGoals])
+
+  // 切换会话时同步读取已持久化的目标
+  React.useEffect(() => {
+    void window.electronAPI.getAgentSessionGoal(sessionId)
+      .then((goal) => {
+        if (goal) setSessionGoals((prev) => ({ ...prev, [sessionId]: goal }))
+      })
+      .catch((error) => {
+        console.error('[会话目标] 读取失败:', error)
+      })
+  }, [sessionId, setSessionGoals])
+
   // AgentView 只保留低频外部草稿写入；编辑器本地同步由 AgentScopedRichTextInput 订阅，
   // 避免每次停顿保存草稿时重渲染整个 Agent 页面。
   const setDraftsMap = useSetAtom(agentSessionDraftsAtom)
@@ -1021,6 +1061,16 @@ export function AgentView({ sessionId, embedded = false }: AgentViewProps): Reac
       : ''
     const payload = buildQueuedMessageSendPayload(message, quotedSelectionBlock)
     if (!payload.rawText || !agentChannelId || !hasAvailableModel) return
+
+    // /goal 命令：先持久化会话目标，空目标给出提示并不发送
+    const queuedGoal = payload.mentions.goalText
+    if (queuedGoal !== undefined) {
+      if (!queuedGoal) {
+        toast.info('请输入目标内容，例如 /goal 重构登录模块')
+        return
+      }
+      setSessionGoal(sessionId, queuedGoal)
+    }
 
     clearStoppedByUser()
     setAgentStreamErrors((prev) => {
@@ -2003,6 +2053,15 @@ export function AgentView({ sessionId, embedded = false }: AgentViewProps): Reac
         ? buildQuotedSelectionBlock(quotedSelection)
         : ''
       const payload = buildQueuedMessageSendPayload(message, quotedSelectionBlock)
+      // /goal 命令：先持久化会话目标，空目标给出提示并不发送
+      const deferredGoal = payload.mentions.goalText
+      if (deferredGoal !== undefined) {
+        if (!deferredGoal) {
+          toast.info('请输入目标内容，例如 /goal 重构登录模块')
+          return
+        }
+        setSessionGoal(sessionId, deferredGoal)
+      }
       const queuedInput: AgentDeferredQueueMessageInput & { dispatch: 'after_current' } = {
         queueMessageId: message.id,
         sessionId,
@@ -2132,8 +2191,16 @@ export function AgentView({ sessionId, embedded = false }: AgentViewProps): Reac
     }
 
     // 2. 构建最终消息
-    const finalMessage = fileReferences + expandAgentHistoryQuoteMentions(effectiveText)
+    const finalMessage = fileReferences + expandAgentHistoryQuoteMentions(effectiveText.replace(/^\/goal(?:\s+|:)/, ''))
     const mentions = parseQueuedMessageMentions(effectiveText)
+    // /goal 命令：把目标写入会话状态；空目标给出提示并不发送
+    if (mentions.goalText !== undefined) {
+      if (!mentions.goalText) {
+        toast.info('请输入目标内容，例如 /goal 重构登录模块')
+        return
+      }
+      setSessionGoal(sessionId, mentions.goalText)
+    }
     // Agent 侧使用解码后的 SDK 文本（@file 路径还原为真实路径，Agent 可读取）；
     // 历史 quote marker 仅在此刻展开为精确上下文，草稿本身始终保持可编辑 chip。
     const sdkMessage = fileReferences + expandAgentHistoryQuoteMentions(mentions.cleanedText)
@@ -3048,6 +3115,23 @@ export function AgentView({ sessionId, embedded = false }: AgentViewProps): Reac
                     }}
                   />
                 </button>
+              </div>
+            )}
+
+            {currentGoal && (
+              <div className="px-3 pb-1">
+                <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-xs text-amber-600 dark:text-amber-400">
+                  <Crosshair className="size-3 shrink-0" />
+                  <span className="truncate font-medium">目标：{currentGoal}</span>
+                  <button
+                    type="button"
+                    className="ml-1 shrink-0 text-muted-foreground/50 transition-colors hover:text-foreground"
+                    onClick={() => { clearSessionGoal(sessionId) }}
+                    aria-label="清除会话目标"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </span>
               </div>
             )}
 

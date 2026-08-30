@@ -125,6 +125,8 @@ export function moveQueuedMessage(
 
 export interface ParsedQueuedMessageMentions {
   cleanedText: string
+  /** `/goal <文本>` 命令提取的会话目标；无命令时缺省 */
+  goalText?: string
   mentionedSkills: string[]
   mentionedMcpServers: string[]
   mentionedSessionIds: string[]
@@ -324,18 +326,29 @@ export function parseQueuedMessageMentions(text: string): ParsedQueuedMessageMen
     else if (calendarEvent) mentionedCalendarEventIds.push(calendarEvent)
   }
 
+  let cleanedText = text
+    .replace(REF_PATTERN, '')
+    // @file: 路径在 htmlToMarkdown 序列化时已 encodeURIComponent（路径可能含空格），
+    // 这里还原为真实路径，保证 Agent 侧读取的是可访问的完整路径；
+    // 仅当含百分号编码时解码，避免破坏旧的未编码路径。
+    .replace(new RegExp(String.raw`@file:(${ENCODED_MENTION_VALUE_PATTERN})`, 'gu'), (full, encodedPath: string) =>
+      /%[0-9A-Fa-f]{2}/.test(encodedPath)
+        ? `@file:${decodeReferenceLabel(encodedPath)}`
+        : full
+    )
+    .trim()
+
+  // Codex 风格 `/goal <文本>`：命令从消息中剥离，目标写入会话状态（由 AgentView 调用 IPC 持久化）。
+  let goalText: string | undefined
+  const goalCommand = cleanedText.match(/^\/goal(?:\s+|:)([\s\S]*)$/)
+  if (goalCommand) {
+    goalText = goalCommand[1]!.trim()
+    cleanedText = goalText
+  }
+
   return {
-    cleanedText: text
-      .replace(REF_PATTERN, '')
-      // @file: 路径在 htmlToMarkdown 序列化时已 encodeURIComponent（路径可能含空格），
-      // 这里还原为真实路径，保证 Agent 侧读取的是可访问的完整路径；
-      // 仅当含百分号编码时解码，避免破坏旧的未编码路径。
-      .replace(new RegExp(String.raw`@file:(${ENCODED_MENTION_VALUE_PATTERN})`, 'gu'), (full, encodedPath: string) =>
-        /%[0-9A-Fa-f]{2}/.test(encodedPath)
-          ? `@file:${decodeReferenceLabel(encodedPath)}`
-          : full
-      )
-      .trim(),
+    cleanedText,
+    goalText,
     mentionedSkills,
     mentionedMcpServers,
     mentionedSessionIds,

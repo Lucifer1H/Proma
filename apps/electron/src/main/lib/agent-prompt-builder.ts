@@ -30,6 +30,8 @@ interface SystemPromptContext {
   agentCwd?: string
   /** 会话私有工作台布局；缺失时按历史 `.context/` 兼容。 */
   sessionWorkbenchLayout?: SessionWorkbenchLayout
+  /** 会话目标（Codex 风格）；有值时注入独立区块 */
+  goalText?: string
   permissionMode: PromaPermissionMode
   collaborationAvailable?: boolean
   currentModelId?: string
@@ -126,6 +128,9 @@ export function buildSystemPrompt(ctx: SystemPromptContext): string {
   const sections = [
     `# Proma Agent
 你是由 Pi Agent SDK 驱动的 Proma Agent，协助用户 ${userName}。优先中文，直接解决明确目标；低风险、可验证操作直接执行。涉及不可逆删除、外部发送/发布、付费或安全边界变化时先确认。`,
+    ctx.goalText?.trim()
+      ? `## 会话目标（用户设定，持续有效）\n你当前正在完成用户设定的会话目标：\n\n${ctx.goalText.trim()}\n\n围绕该目标推进，不要偏离；如目标已达成或无法完成，明确告知用户。`
+      : undefined,
     `## Pi 运行时
 使用 Proma 提供的工具；Write 必须同时传入完整 \`path\` 与 \`content\`。附加目录可用其绝对路径访问。${modelRule}`,
     `## 可见终端

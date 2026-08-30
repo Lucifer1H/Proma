@@ -1659,3 +1659,6 @@ export const stoppedByUserSessionsAtom = atom<Set<string>>(new Set<string>())
 
 /** AgentSettingsInitializer 是否已完成加载（渠道/工作区/设置全部就绪） */
 export const agentSettingsReadyAtom = atom(false)
+
+/** 会话目标（Codex 风格）：sessionId → 目标文本；缺失=未设置 */
+export const agentSessionGoalAtom = atom<Record<string, string>>({})

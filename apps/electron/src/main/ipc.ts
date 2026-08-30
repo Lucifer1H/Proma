@@ -2336,6 +2336,22 @@ export function registerIpcHandlers(): void {
     async (): Promise<AgentSessionMeta[]> => listActiveAgentSessions(),
   )
 
+  // ===== 会话目标（Codex 风格）=====
+
+  ipcMain.handle(
+    AGENT_IPC_CHANNELS.GET_SESSION_GOAL,
+    async (_, sessionId: string): Promise<string | undefined> => getAgentSessionMeta(sessionId)?.goal
+  )
+
+  ipcMain.handle(
+    AGENT_IPC_CHANNELS.SET_SESSION_GOAL,
+    async (_, sessionId: string, goalText: unknown): Promise<string | undefined> => {
+      const goal = typeof goalText === 'string' ? goalText.trim() : ''
+      updateAgentSessionMeta(sessionId, { goal: goal || undefined })
+      return goal || undefined
+    }
+  )
+
   // 获取当前主进程仍在执行的 Agent 会话快照，供 renderer 重载后恢复运行态
   ipcMain.handle(
     AGENT_IPC_CHANNELS.ACTIVE_SESSIONS_SNAPSHOT,

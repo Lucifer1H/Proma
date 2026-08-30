@@ -8,7 +8,7 @@
 import type React from 'react'
 import { ReactRenderer } from '@tiptap/react'
 import type { SuggestionOptions } from '@tiptap/suggestion'
-import { CalendarDays, ListTodo, MessageSquareText, Sparkles, Server } from 'lucide-react'
+import { CalendarDays, Crosshair, ListTodo, MessageSquareText, Sparkles, Server } from 'lucide-react'
 import { MentionList } from './MentionList'
 import type { MentionListRef } from './MentionList'
 import { createDebouncedSuggestionLoader, createLatestSuggestionRequestGuard, createMentionPopup, positionPopup, isSuggestionTriggerPresent, shouldSuppressEscTrigger, shouldClearEscSuppressionOnExit, type EscSuppressedTrigger } from './mention-popup-utils'
@@ -144,6 +144,11 @@ function createMentionSuggestion<T>(
               keyExtractor: config.keyExtractor,
               renderItem: config.renderItem,
               onSelect: (item: T) => {
+                // 目标是文本命令而非 chip：替换触发符并插入 /goal 前缀，等待用户输入目标内容
+                if ((item as { id?: string }).id === 'goal') {
+                  props.editor.chain().focus().insertContentAt(props.range, '/goal ').run()
+                  return
+                }
                 const cmd = config.toCommand(item)
                 props.command({ ...cmd, mentionSuggestionChar: config.char })
                 props.editor.chain().insertContent(' ').run()
@@ -173,6 +178,11 @@ function createMentionSuggestion<T>(
           renderer?.updateProps({
             items: props.items,
             onSelect: (item: T) => {
+              // 目标是文本命令而非 chip：替换触发符并插入 /goal 前缀，等待用户输入目标内容
+              if ((item as { id?: string }).id === 'goal') {
+                props.editor.chain().focus().insertContentAt(props.range, '/goal ').run()
+                return
+              }
               const cmd = config.toCommand(item)
               props.command({ ...cmd, mentionSuggestionChar: config.char })
               props.editor.chain().insertContent(' ').run()
@@ -228,21 +238,35 @@ export function createSkillMentionSuggestion(
       emptyText: '无匹配 Skill',
       fetchItems: async (slug, q) => {
         const caps = await window.electronAPI.getWorkspaceCapabilities(slug)
-        return caps.skills
+        const goalItem: SkillMentionItem = {
+          id: 'goal',
+          name: '设置目标',
+          description: '设定会话目标，Agent 每轮围绕它工作',
+        }
+        const skills = caps.skills
           .filter((s) => s.enabled)
           .filter((s) => !q || s.name.toLowerCase().includes(q) || (s.slug ?? '').toLowerCase().includes(q))
           .map((s) => ({ id: s.slug, name: s.name, description: s.description }))
+        const showGoal = !q || 'goal'.includes(q.toLowerCase()) || '设置目标'.includes(q)
+        return showGoal ? [goalItem, ...skills] : skills
       },
       keyExtractor: (item) => item.id,
-      renderItem: (item) => (
-        <>
-          <Sparkles className="size-3.5 text-violet-500 flex-shrink-0" />
-          <span className="truncate font-medium flex-1 min-w-0">{item.name}</span>
-          {item.description && (
-            <span className="truncate text-[10px] text-muted-foreground/50 max-w-[120px]">{item.description}</span>
-          )}
-        </>
-      ),
+      renderItem: (item) =>
+        item.id === 'goal' ? (
+          <>
+            <Crosshair className="size-3.5 text-amber-500 flex-shrink-0" />
+            <span className="truncate font-medium flex-1 min-w-0">{item.name}</span>
+            <span className="truncate text-[10px] text-muted-foreground/50 max-w-[120px]">为整个会话设目标</span>
+          </>
+        ) : (
+          <>
+            <Sparkles className="size-3.5 text-violet-500 flex-shrink-0" />
+            <span className="truncate font-medium flex-1 min-w-0">{item.name}</span>
+            {item.description && (
+              <span className="truncate text-[10px] text-muted-foreground/50 max-w-[120px]">{item.description}</span>
+            )}
+          </>
+        ),
       toCommand: (item) => ({ id: item.id, label: item.name }),
     },
     workspaceSlugRef,

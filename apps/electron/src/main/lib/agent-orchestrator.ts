@@ -1495,6 +1495,7 @@ export class AgentOrchestrator {
         sessionId,
         agentCwd,
         sessionWorkbenchLayout: getSessionWorkbenchLayout(sessionMeta),
+        goalText: sessionMeta?.goal,
         permissionMode: initialPermissionMode,
         collaborationAvailable,
         currentModelId: selectedModelId,
