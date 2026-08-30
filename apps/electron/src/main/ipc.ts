@@ -2336,7 +2336,7 @@ export function registerIpcHandlers(): void {
     async (): Promise<AgentSessionMeta[]> => listActiveAgentSessions(),
   )
 
-  // ===== 会话目标（Codex 风格）=====
+  // ===== 会话目标 =====
 
   ipcMain.handle(
     AGENT_IPC_CHANNELS.GET_SESSION_GOAL,

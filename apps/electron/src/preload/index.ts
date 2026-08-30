@@ -541,7 +541,7 @@ export interface ElectronAPI {
 
   /** 获取 Agent 会话列表 */
   listAgentSessions: () => Promise<AgentSessionMeta[]>
-  /** 获取会话目标（Codex 风格） */
+  /** 获取会话目标 */
   getAgentSessionGoal: (sessionId: string) => Promise<string | undefined>
   /** 设置/清除会话目标（传空字符串清除） */
   setAgentSessionGoal: (sessionId: string, goalText: string) => Promise<string | undefined>

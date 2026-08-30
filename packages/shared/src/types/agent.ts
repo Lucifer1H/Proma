@@ -719,7 +719,7 @@ export interface AgentSessionMeta {
   id: string
   /** 会话标题 */
   title: string
-  /** 会话目标（Codex 风格）；Agent 每轮都会在系统提示中看到它 */
+  /** 会话目标；Agent 每轮都会在系统提示中看到它 */
   goal?: string
   /** 使用的渠道 ID */
   channelId?: string
@@ -1734,7 +1734,7 @@ export const AGENT_IPC_CHANNELS = {
   ACTIVE_SESSIONS_SNAPSHOT: 'agent:active-sessions-snapshot',
   /** 获取会话 SDKMessage（Phase 4 新格式） */
   GET_SDK_MESSAGES: 'agent:get-sdk-messages',
-  /** 获取会话目标（Codex 风格） */
+  /** 获取会话目标 */
   GET_SESSION_GOAL: 'agent:get-session-goal',
   /** 设置/清除会话目标（传空字符串清除） */
   SET_SESSION_GOAL: 'agent:set-session-goal',

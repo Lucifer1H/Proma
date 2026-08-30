@@ -30,7 +30,7 @@ interface SystemPromptContext {
   agentCwd?: string
   /** 会话私有工作台布局；缺失时按历史 `.context/` 兼容。 */
   sessionWorkbenchLayout?: SessionWorkbenchLayout
-  /** 会话目标（Codex 风格）；有值时注入独立区块 */
+  /** 会话目标；有值时注入独立区块 */
   goalText?: string
   permissionMode: PromaPermissionMode
   collaborationAvailable?: boolean

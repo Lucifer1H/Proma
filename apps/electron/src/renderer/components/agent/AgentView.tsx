@@ -616,7 +616,7 @@ export function AgentView({ sessionId, embedded = false }: AgentViewProps): Reac
     ? (wsAttachedFilesMap.get(currentWorkspaceId) ?? EMPTY_STRING_ARRAY)
     : EMPTY_STRING_ARRAY
 
-  // ===== 会话目标（Codex 风格）=====
+  // ===== 会话目标 =====
   const [sessionGoals, setSessionGoals] = useAtom(agentSessionGoalAtom)
   const currentGoal = sessionGoals[sessionId]
 

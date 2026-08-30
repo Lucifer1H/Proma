@@ -338,7 +338,7 @@ export function parseQueuedMessageMentions(text: string): ParsedQueuedMessageMen
     )
     .trim()
 
-  // Codex 风格 `/goal <文本>`：命令从消息中剥离，目标写入会话状态（由 AgentView 调用 IPC 持久化）。
+  // `/goal <文本>`：命令从消息中剥离，目标写入会话状态（由 AgentView 调用 IPC 持久化）。
   let goalText: string | undefined
   if (cleanedText === '/goal') {
     // 仅选中 chip 但未输入目标内容
