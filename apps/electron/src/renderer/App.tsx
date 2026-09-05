@@ -1,7 +1,6 @@
 import * as React from 'react'
 import { useAtom } from 'jotai'
 import { AppShell } from './components/app-shell/AppShell'
-import { TutorialBanner } from './components/tutorial/TutorialBanner'
 import { EnvironmentCheckDialog } from './components/environment/EnvironmentCheckDialog'
 import { TooltipProvider } from './components/ui/tooltip'
 import { ShortcutGuideDialog } from './components/shortcuts/ShortcutGuideDialog'
@@ -33,7 +32,6 @@ export default function App(): React.ReactElement {
       <PlanningReminderRail />
       <ShortcutGuideDialog />
       <FaqDialog />
-      <TutorialBanner />
       <GlobalEnvironmentCheckDialog />
     </TooltipProvider>
   )
