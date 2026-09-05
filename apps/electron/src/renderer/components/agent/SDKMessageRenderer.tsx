@@ -12,7 +12,7 @@
  */
 
 import * as React from 'react'
-import { Bot, Loader2, AlertTriangle, FileText, FileImage, Download, Split, Undo2, RotateCw, Plus, Minimize2, Wrench, Settings, Cpu, ExternalLink, Quote, Clock, Trash2, FolderInput, FolderPlus, ListTodo } from 'lucide-react'
+import { Bot, Loader2, AlertTriangle, FileText, FileImage, Download, Split, Undo2, RotateCw, Plus, Minimize2, Wrench, Settings, Cpu, ExternalLink, Quote, Clock, FolderInput, FolderPlus, ListTodo } from 'lucide-react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { cn } from '@/lib/utils'
 import { ImageLightbox, type LightboxImage } from '@/components/ui/image-lightbox'
@@ -1395,8 +1395,6 @@ export interface MessageGroupRendererProps {
   onCompact?: () => void
   onRelinkProjectRoot?: () => void
   onRestoreProjectRoot?: () => void
-  /** 删除本条消息（传 SDKMessage uuid） */
-  onDeleteMessage?: (messageUuid: string) => void
   /** 当前历史轮次；直接写入消息 DOM，避免划选时回扫整段历史。 */
   historyTurn?: number
   /** 是否正在流式输出中（隐藏操作栏） */
@@ -1453,29 +1451,13 @@ export function getGroupId(group: MessageGroup): string {
 
 // getGroupPreview 已迁移至 @proma/session-core（本文件从该包 import 并 re-export）
 
-export const MessageGroupRenderer = React.memo(function MessageGroupRenderer({ group, allMessages, basePath, onFork, onRewind, onAgentHistoryQuoteClick, onCreateTodo, onRetry, onRetryInNewSession, onCompact, onRelinkProjectRoot, onRestoreProjectRoot, onDeleteMessage, historyTurn, isStreaming, stoppedByUser, sessionModelId }: MessageGroupRendererProps): React.ReactElement | null {
+export const MessageGroupRenderer = React.memo(function MessageGroupRenderer({ group, allMessages, basePath, onFork, onRewind, onAgentHistoryQuoteClick, onCreateTodo, onRetry, onRetryInNewSession, onCompact, onRelinkProjectRoot, onRestoreProjectRoot, historyTurn, isStreaming, stoppedByUser, sessionModelId }: MessageGroupRendererProps): React.ReactElement | null {
   const groupId = getGroupId(group)
-
-  // 悬停在消息上时显示的删除按钮（对 system 消息隐藏）
-  const deleteButton = (uuid: string | undefined | null): React.ReactElement | null => {
-    if (!uuid || !onDeleteMessage || group.type === 'system') return null
-    return (
-      <button
-        type="button"
-        className="absolute right-1.5 top-1.5 z-10 rounded-md border border-border/60 bg-background/90 p-1 text-muted-foreground/60 opacity-0 shadow-sm transition-opacity hover:bg-accent hover:text-foreground group-hover/msg:opacity-100"
-        title="删除这条消息"
-        onClick={() => { onDeleteMessage(uuid) }}
-      >
-        <Trash2 className="size-3.5" />
-      </button>
-    )
-  }
 
   if (group.type === 'user') {
     return (
-      <div data-message-id={groupId} data-message-role="user" data-message-turn={historyTurn} className="group/msg relative">
+      <div data-message-id={groupId} data-message-role="user" data-message-turn={historyTurn}>
         <UserInputMessage message={group.message} onAgentHistoryQuoteClick={onAgentHistoryQuoteClick} />
-        {deleteButton(group.message?.uuid)}
       </div>
     )
   }
@@ -1494,15 +1476,12 @@ export const MessageGroupRenderer = React.memo(function MessageGroupRenderer({ g
   }
 
   // assistant-turn
-  const primaryAssistantUuid = group.assistantMessages.find((m) => m.type === 'assistant')?.uuid
-    ?? group.assistantMessages[0]?.uuid
   return (
     <div
       data-message-id={groupId}
       data-message-role="assistant"
       data-message-turn={historyTurn}
       data-agent-live={isStreaming ? 'true' : undefined}
-      className="group/msg relative"
     >
       <AssistantTurnRenderer
         turn={group}
@@ -1520,7 +1499,6 @@ export const MessageGroupRenderer = React.memo(function MessageGroupRenderer({ g
         stoppedByUser={stoppedByUser}
         sessionModelId={sessionModelId}
       />
-      {deleteButton(primaryAssistantUuid)}
     </div>
   )
 }, (previous, next) => (
@@ -1535,7 +1513,6 @@ export const MessageGroupRenderer = React.memo(function MessageGroupRenderer({ g
   && previous.onCompact === next.onCompact
   && previous.onRelinkProjectRoot === next.onRelinkProjectRoot
   && previous.onRestoreProjectRoot === next.onRestoreProjectRoot
-  && previous.onDeleteMessage === next.onDeleteMessage
   && previous.historyTurn === next.historyTurn
   && previous.isStreaming === next.isStreaming
   && previous.stoppedByUser === next.stoppedByUser

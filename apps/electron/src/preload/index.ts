@@ -548,8 +548,6 @@ export interface ElectronAPI {
   getAgentSessionGoal: (sessionId: string) => Promise<string | undefined>
   /** 设置/清除会话目标（传空字符串清除） */
   setAgentSessionGoal: (sessionId: string, goalText: string) => Promise<string | undefined>
-  /** 删除会话中的单条消息 */
-  deleteAgentMessage: (sessionId: string, messageUuid: string) => Promise<boolean>
 
   /** 获取未归档会话列表，供左侧 active 视图使用 */
   listActiveAgentSessions: () => Promise<AgentSessionMeta[]>
@@ -1804,10 +1802,6 @@ const electronAPI: ElectronAPI = {
 
   setAgentSessionGoal: (sessionId: string, goalText: string) => {
     return ipcRenderer.invoke(AGENT_IPC_CHANNELS.SET_SESSION_GOAL, sessionId, goalText)
-  },
-
-  deleteAgentMessage: (sessionId: string, messageUuid: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.DELETE_MESSAGE, sessionId, messageUuid)
   },
 
   listActiveAgentSessions: () => {
