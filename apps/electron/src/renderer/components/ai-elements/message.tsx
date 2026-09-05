@@ -516,7 +516,7 @@ interface MessageResponseProps {
 
 /** 稳定引用的插件数组，避免 react-markdown 每帧重建插件管线 */
 const REMARK_PLUGINS = [remarkGfm, remarkMath]
-const REHYPE_PLUGINS = [rehypeKatex]
+const REHYPE_PLUGINS = [rehypeKatex({ strict: false })]
 
 /** 允许 mention:// 和本地绝对路径通过 URL 清洗 */
 function mentionUrlTransform(url: string): string {
