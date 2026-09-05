@@ -237,6 +237,8 @@ interface AgentMessagesProps {
   onAddHistoryQuote?: (quote: QuotedSelection) => boolean
   /** 嵌入在右侧探索分支时关闭嵌套探索入口，避免没有容器的二级分叉。 */
   explorationEnabled?: boolean
+  /** 删除会话中的单条消息（传 SDKMessage uuid） */
+  onDeleteMessage?: (sessionId: string, messageUuid: string) => void
   /** 已发送的 Agent 历史引用 chip 点击后请求定位与高亮。 */
   onAgentHistoryQuoteClick?: (quote: QuotedSelection) => void
   /** 输入框 quote chip 请求定位时的精确范围。 */
@@ -614,6 +616,8 @@ interface AgentTranscriptHistoryProps {
   onRelinkProjectRoot?: () => void
   onRestoreProjectRoot?: () => void
   onCompact?: () => void
+  /** 删除会话中的单条消息 */
+  onDeleteMessage?: (messageUuid: string) => void
 }
 
 const EMPTY_LIVE_GROUP_SET: ReadonlySet<MessageGroup> = new Set()
@@ -753,6 +757,7 @@ const AgentTranscriptHistory = React.forwardRef<AgentTranscriptHistoryHandle, Ag
   onRelinkProjectRoot,
   onRestoreProjectRoot,
   onCompact,
+  onDeleteMessage,
 }, ref): React.ReactElement {
   const { scrollRef, isAtBottom, stopScroll } = useStickToBottomContext()
   const previousLayoutRef = React.useRef<{
@@ -842,6 +847,7 @@ const AgentTranscriptHistory = React.forwardRef<AgentTranscriptHistoryHandle, Ag
         onRelinkProjectRoot={onRelinkProjectRoot}
         onRestoreProjectRoot={onRestoreProjectRoot}
         onCompact={onCompact}
+        onDeleteMessage={onDeleteMessage}
       />
       {liveGroups.length > 0 && (
         <AgentTranscriptRows
@@ -863,6 +869,7 @@ const AgentTranscriptHistory = React.forwardRef<AgentTranscriptHistoryHandle, Ag
           onRelinkProjectRoot={onRelinkProjectRoot}
           onRestoreProjectRoot={onRestoreProjectRoot}
           onCompact={onCompact}
+          onDeleteMessage={onDeleteMessage}
         />
       )}
     </div>
@@ -886,6 +893,7 @@ export const AgentMessages = React.memo(function AgentMessages({
   onCreateTodo,
   onCompact,
   onAddHistoryQuote,
+  onDeleteMessage,
   explorationEnabled = true,
   onAgentHistoryQuoteClick,
   historyQuoteNavigation,
@@ -1211,6 +1219,7 @@ export const AgentMessages = React.memo(function AgentMessages({
                 onRelinkProjectRoot={onRelinkProjectRoot}
                 onRestoreProjectRoot={onRestoreProjectRoot}
                 onCompact={onCompact}
+                onDeleteMessage={(uuid) => onDeleteMessage?.(sessionId, uuid)}
               />
 
               {/* 有实时助手内容时：显示运行指示器或占位（防止 streaming 结束到 Actions Bar 出现之间的高度跳动） */}

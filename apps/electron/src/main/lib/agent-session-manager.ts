@@ -1170,6 +1170,27 @@ export function removeSDKErrorMessage(id: string, errorUuid: string): boolean {
 }
 
 /**
+ * 删除会话中的单条消息（按 SDKMessage uuid 匹配）。
+ * 仅重写 Proma 侧 JSONL 镜像；Pi artifact 不做同级操作。
+ */
+export function removeAgentSDKMessage(id: string, messageUuid: string): boolean {
+  const filePath = getAgentSessionMessagesPath(id)
+  if (!existsSync(filePath) || !messageUuid) return false
+
+  const raw = readFileSync(filePath, 'utf-8')
+  const lines = raw.split('\n').filter((line) => line.trim())
+  const messages = parseJsonlStrict<unknown>(lines, `删除消息 (${id})`).map(normalizePersistedSDKMessage)
+  const targetIndex = messages.findIndex((message) => (message as { uuid?: string }).uuid === messageUuid)
+  if (targetIndex < 0) return false
+
+  const kept = messages.filter((_, index) => index !== targetIndex)
+  const content = kept.map((message) => JSON.stringify(message)).join('\n') + (kept.length > 0 ? '\n' : '')
+  writeTextFileAtomic(filePath, content)
+  console.log(`[Agent 会话] 已删除消息: sessionId=${id}, uuid=${messageUuid}`)
+  return true
+}
+
+/**
  * Persist successful Skill loading on the human input that Pi actually consumed.
  * This is intentionally a targeted JSONL rewrite: native Pi queues can produce
  * several logical user turns before a single terminal result arrives.

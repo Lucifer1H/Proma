@@ -2371,8 +2371,35 @@ export function AgentView({ sessionId, embedded = false }: AgentViewProps): Reac
     if (!streaming) setIsStopping(false)
   }, [streaming])
 
-  /** 手动发送 /compact 命令 */
-  const handleCompact = React.useCallback((): void => {
+  /** 删除 Agent 会话中的单条消息（悬停消息上的删除按钮触发）。 */
+  const handleDeleteAgentMessage = React.useCallback((sid: string, messageUuid: string): void => {
+    if (!window.confirm('删除这条消息？该操作不可撤销。')) return
+    void window.electronAPI.deleteAgentMessage(sid, messageUuid)
+      .then((deleted) => {
+        if (!deleted) {
+          toast.error('删除失败：消息不存在')
+          return
+        }
+        toast.success('消息已删除')
+        store.set(agentMessageRefreshAtom, (prev) => {
+          const next = new Map(prev)
+          next.set(sid, (next.get(sid) ?? 0) + 1)
+          return next
+        })
+        store.set(liveMessagesMapAtom, (prev) => {
+          const map = new Map(prev)
+          const list = map.get(sid)
+          if (list) map.set(sid, list.filter((m) => (m as { uuid?: string }).uuid !== messageUuid))
+          return map
+        })
+      })
+      .catch((error) => {
+        console.error('[Agent 会话] 删除消息失败:', error)
+        toast.error('删除消息失败')
+      })
+  }, [store])
+
+  /** 手动发送 /compact 命令 */  const handleCompact = React.useCallback((): void => {
     if (!agentChannelId || streaming) return
 
     const streamStartedAt = Date.now()
@@ -3063,6 +3090,7 @@ export function AgentView({ sessionId, embedded = false }: AgentViewProps): Reac
           onCreateTodo={handleOpenReplyTodoDialog}
           onCompact={handleCompact}
           onAddHistoryQuote={handleAddHistoryQuote}
+          onDeleteMessage={handleDeleteAgentMessage}
           explorationEnabled={!embedded}
           onAgentHistoryQuoteClick={handleAgentHistoryQuoteClick}
           historyQuoteNavigation={historyQuoteNavigation}

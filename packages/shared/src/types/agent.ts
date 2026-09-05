@@ -1767,6 +1767,8 @@ export const AGENT_IPC_CHANNELS = {
   GET_SESSION_GOAL: 'agent:get-session-goal',
   /** 设置/清除会话目标（传空字符串清除） */
   SET_SESSION_GOAL: 'agent:set-session-goal',
+  /** 删除会话中的单条消息 */
+  DELETE_MESSAGE: 'agent:delete-message',
   /** 更新会话标题 */
   UPDATE_TITLE: 'agent:update-title',
   /** 更新会话模型选择 */

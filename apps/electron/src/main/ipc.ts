@@ -276,6 +276,7 @@ import {
   getAgentSessionMeta,
   getAgentSessionSDKMessages,
   updateAgentSessionMeta,
+  removeAgentSDKMessage,
   deleteAgentSession,
   migrateChatToAgentSession,
   moveSessionToWorkspace,
@@ -2402,6 +2403,12 @@ export function registerIpcHandlers(): void {
       updateAgentSessionMeta(sessionId, { goal: goal || undefined })
       return goal || undefined
     }
+  )
+
+  ipcMain.handle(
+    AGENT_IPC_CHANNELS.DELETE_MESSAGE,
+    async (_, sessionId: string, messageUuid: string): Promise<boolean> =>
+      removeAgentSDKMessage(sessionId, messageUuid)
   )
 
   // 获取当前主进程仍在执行的 Agent 会话快照，供 renderer 重载后恢复运行态
