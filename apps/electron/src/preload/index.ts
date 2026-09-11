@@ -842,6 +842,8 @@ export interface ElectronAPI {
 
   /** 获取所有工具信息 */
   getChatTools: () => Promise<ChatToolInfo[]>
+  /** 获取工具凭据 */
+  getChatToolCredentials: (toolId: string) => Promise<Record<string, string>>
 
   /** 更新工具开关状态 */
   updateChatToolState: (toolId: string, state: ChatToolState) => Promise<void>
@@ -851,6 +853,11 @@ export interface ElectronAPI {
 
   /** 删除自定义工具 */
   deleteCustomChatTool: (toolId: string) => Promise<void>
+
+  /** 更新工具凭据 */
+  updateChatToolCredentials: (toolId: string, credentials: Record<string, string>) => Promise<void>
+  /** 测试工具连接 */
+  testChatTool: (toolId: string) => Promise<{ success: boolean; message: string }>
 
   /** 监听自定义工具配置变更 */
   onCustomToolChanged: (callback: () => void) => () => void
@@ -2245,8 +2252,16 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke(CHAT_TOOL_IPC_CHANNELS.GET_ALL_TOOLS)
   },
 
+  getChatToolCredentials: (toolId: string) => {
+    return ipcRenderer.invoke(CHAT_TOOL_IPC_CHANNELS.GET_TOOL_CREDENTIALS, toolId)
+  },
+
   updateChatToolState: (toolId: string, state: ChatToolState) => {
     return ipcRenderer.invoke(CHAT_TOOL_IPC_CHANNELS.UPDATE_TOOL_STATE, toolId, state)
+  },
+
+  updateChatToolCredentials: (toolId: string, credentials: Record<string, string>) => {
+    return ipcRenderer.invoke(CHAT_TOOL_IPC_CHANNELS.UPDATE_TOOL_CREDENTIALS, toolId, credentials)
   },
 
   createCustomChatTool: (meta: ChatToolMeta) => {
@@ -2261,6 +2276,10 @@ const electronAPI: ElectronAPI = {
     const listener = (): void => callback()
     ipcRenderer.on(CHAT_TOOL_IPC_CHANNELS.CUSTOM_TOOL_CHANGED, listener)
     return () => { ipcRenderer.removeListener(CHAT_TOOL_IPC_CHANNELS.CUSTOM_TOOL_CHANGED, listener) }
+  },
+
+  testChatTool: (toolId: string) => {
+    return ipcRenderer.invoke(CHAT_TOOL_IPC_CHANNELS.TEST_TOOL, toolId)
   },
 
   // AskUserQuestion 交互式问答

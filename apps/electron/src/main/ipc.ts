@@ -409,7 +409,7 @@ function stopWorkspaceMemoryWatch(webContentsId: number, workspaceSlug: string):
 }
 
 import { getAllToolInfos } from './lib/chat-tool-registry'
-import { updateToolState, addCustomTool, deleteCustomTool } from './lib/chat-tool-config'
+import { updateToolState, updateToolCredentials, getToolCredentials, addCustomTool, deleteCustomTool } from './lib/chat-tool-config'
 import {
   getSystemPromptConfig,
   createSystemPrompt,
@@ -3727,6 +3727,22 @@ export function registerIpcHandlers(): void {
     }
   )
 
+  // 获取工具凭据
+  ipcMain.handle(
+    CHAT_TOOL_IPC_CHANNELS.GET_TOOL_CREDENTIALS,
+    async (_, toolId: string): Promise<Record<string, string>> => {
+      return getToolCredentials(toolId)
+    }
+  )
+
+  // 更新工具凭据
+  ipcMain.handle(
+    CHAT_TOOL_IPC_CHANNELS.UPDATE_TOOL_CREDENTIALS,
+    async (_, toolId: string, credentials: Record<string, string>): Promise<void> => {
+      updateToolCredentials(toolId, credentials)
+    }
+  )
+
   // 创建自定义工具
   ipcMain.handle(
     CHAT_TOOL_IPC_CHANNELS.CREATE_CUSTOM_TOOL,
@@ -3740,6 +3756,46 @@ export function registerIpcHandlers(): void {
     CHAT_TOOL_IPC_CHANNELS.DELETE_CUSTOM_TOOL,
     async (_, toolId: string): Promise<void> => {
       deleteCustomTool(toolId)
+    }
+  )
+
+  // 测试工具连接
+  ipcMain.handle(
+    CHAT_TOOL_IPC_CHANNELS.TEST_TOOL,
+    async (_, toolId: string): Promise<{ success: boolean; message: string }> => {
+      if (toolId === 'web-search') {
+        const credentials = getToolCredentials('web-search')
+        if (!credentials.apiKey) return { success: false, message: '请先填写 Tavily API Key' }
+        try {
+          const response = await getFetchFn(await getEffectiveProxyUrl())('https://api.tavily.com/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${credentials.apiKey}` },
+            body: JSON.stringify({ query: 'test connection', search_depth: 'basic', max_results: 1 }),
+          })
+          if (!response.ok) return { success: false, message: `API 请求失败 (${response.status}): ${await response.text()}` }
+          return { success: true, message: '连接成功，Tavily 搜索 API 可用' }
+        } catch (error) {
+          return { success: false, message: `连接失败: ${error instanceof Error ? error.message : String(error)}` }
+        }
+      }
+      if (toolId === 'nano-banana') {
+        const credentials = getToolCredentials('nano-banana')
+        if (!credentials.apiKey) return { success: false, message: '请先填写 Gemini API Key' }
+        try {
+          const baseUrl = credentials.baseUrl?.trim() || 'https://generativelanguage.googleapis.com'
+          const model = credentials.model?.trim() || 'gemini-3.1-flash-image-preview'
+          const response = await getFetchFn(await getEffectiveProxyUrl())(`${baseUrl}/v1beta/models/${model}:generateContent?key=${credentials.apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Hi' }] }], generationConfig: { maxOutputTokens: 10 } }),
+          })
+          if (!response.ok) return { success: false, message: `API 请求失败 (${response.status}): ${await response.text()}` }
+          return { success: true, message: `连接成功，模型 ${model} 可用` }
+        } catch (error) {
+          return { success: false, message: `连接失败: ${error instanceof Error ? error.message : String(error)}` }
+        }
+      }
+      return { success: false, message: `工具 ${toolId} 不支持测试` }
     }
   )
 
