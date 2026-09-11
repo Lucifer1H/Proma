@@ -18,13 +18,13 @@ import {
   Info,
   Globe,
   BookOpen,
-  Wrench,
   Bot,
   GraduationCap,
   ArrowLeft,
   Keyboard,
   HardDriveDownload,
   HardDrive,
+  Wrench,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ShortcutKeycaps } from "@/components/shortcuts/ShortcutKeycaps";
@@ -236,7 +236,7 @@ export function SettingsPanel({
     }
   }, [closeRequested, activeTab, setCloseRequested])
 
-  // 工具 tab 两种模式都显示，Agent Skills / MCP 独立在侧边栏能力中心管理。
+  // 通用设置导航；Agent Skills / MCP 独立在侧边栏能力中心管理。
   const tabs = React.useMemo(() => {
     return [
       ...BASE_TABS,
