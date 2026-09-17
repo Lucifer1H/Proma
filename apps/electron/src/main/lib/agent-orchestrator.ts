@@ -101,7 +101,7 @@ export interface SessionCallbacks {
   /** 发送标题更新 */
   onTitleUpdated: (title: string) => void
   /** 用户消息已持久化，外部入口可据此通知前端切到实时会话 */
-  onRunStarted?: (opts: { startedAt: number; runGeneration: number }) => void
+  onRunStarted?: (opts: { startedAt: number; runGeneration: number; userMessage?: string; userMessageUuid?: string }) => void
 }
 
 type RecoverableAgentQueryOptions = {
@@ -911,7 +911,14 @@ export class AgentOrchestrator {
     const runGeneration = input.runGeneration ?? this.reserveRunGeneration(sessionId)
     this.activeSessions.set(sessionId, runGeneration)
     this.activeSessionStartedAt.set(sessionId, streamStartedAt)
-    callbacks.onRunStarted?.({ startedAt: streamStartedAt, runGeneration })
+    callbacks.onRunStarted?.({
+      startedAt: streamStartedAt,
+      runGeneration,
+      ...(initialUserMessageUuid ? {
+        userMessage: rawUserMessage ?? userMessage,
+        userMessageUuid: initialUserMessageUuid,
+      } : {}),
+    })
 
     const releaseActiveRun = (): void => {
       // 在发送 STREAM_COMPLETE 前释放 active slot，避免渲染进程已进入空闲态、
@@ -1535,7 +1542,8 @@ export class AgentOrchestrator {
 
         // 标题请求与前台 Agent run 使用独立的 Codex Responses 请求，可并发执行。
         // 自动标题只会写入仍为默认名称的会话，因此不会覆盖用户的手动重命名。
-        this.autoGenerateTitle(sessionId, userMessage, channelId, resolvedModel, callbacks)
+        // 标题优先基于用户原文；Bridge 追加的来源标记等 Agent 运行上下文不应出现在标题中。
+        this.autoGenerateTitle(sessionId, rawUserMessage ?? userMessage, channelId, resolvedModel, callbacks)
           .catch((err) => console.error('[Agent 编排] 标题生成未捕获异常:', err))
       }
       const handleSessionId = (sdkSessionId: string, piSessionFile?: string): void => {
@@ -1564,7 +1572,6 @@ export class AgentOrchestrator {
           }
         }
 
-        startAutoTitleGeneration()
       }
       const handleModelResolved = (model: string): void => {
         // `[1m]` 是 SDK 内部上下文变体，不应泄漏到标题生成或用户可见的模型名。
@@ -1673,6 +1680,10 @@ export class AgentOrchestrator {
           this.eventBus.emit(sessionId, { kind: 'proma_event', event: { type: 'retry', ...retry } })
         },
       }
+
+      // 首条用户消息已持久化且运行参数已就绪，立刻启动自动命名。
+      // 不依赖 Pi onSessionId：部分第三方渠道在该回调延迟或缺失时仍必须完成重命名。
+      startAutoTitleGeneration()
 
       console.log(`[Agent 编排] 开始通过 Adapter 遍历事件流...`)
 
