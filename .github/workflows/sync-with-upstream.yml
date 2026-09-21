@@ -28,11 +28,15 @@ jobs:
           git remote add upstream https://github.com/proma-ai/Proma.git
           git fetch upstream main
           git checkout main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git merge --no-edit upstream/main; then
             echo "✅ fork main 已同步 (上游最新: $(git log -1 --format=%s upstream/main))"
             git push origin main
           else
             echo "❌ 与上游合并出现冲突，请手动处理（本地执行 sync-upstream.sh 排查）"
-            git merge --abort
+            if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+              git merge --abort
+            fi
             exit 1
           fi
