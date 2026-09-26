@@ -645,7 +645,7 @@ function NonGitChangesList({
         {hasEarlierChanges ? (
           <>
             {current.length > 0 && <NonGitRunGroup title="本轮" changes={current} sessionId={sessionId} onFileClick={onFileClick} />}
-            <NonGitRunGroup title="更早" changes={earlier} sessionId={sessionId} onFileClick={onFileClick} />
+            <NonGitRunGroup title="更早" changes={earlier} sessionId={sessionId} onFileClick={onFileClick} collapsible defaultCollapsed />
           </>
         ) : (
           <NonGitFileList changes={current} sessionId={sessionId} onFileClick={onFileClick} />
@@ -660,16 +660,49 @@ function NonGitRunGroup({
   changes,
   sessionId,
   onFileClick,
+  collapsible = false,
+  defaultCollapsed = false,
 }: {
   title: string
   changes: SessionFileChange[]
   sessionId: string
   onFileClick?: (filePath: string) => void
+  collapsible?: boolean
+  defaultCollapsed?: boolean
 }): React.ReactElement {
+  const [isExpanded, setIsExpanded] = React.useState(!defaultCollapsed)
+  const contentId = React.useId()
+  const headerClassName = "flex w-full items-center gap-1.5 px-3 py-1 text-left text-[11px] font-medium text-muted-foreground tabular-nums"
+  const headerContent = (
+    <>
+      {collapsible && (isExpanded ? (
+        <ChevronDown className="size-3 shrink-0 transition-transform duration-150" aria-hidden="true" />
+      ) : (
+        <ChevronRight className="size-3 shrink-0 transition-transform duration-150" aria-hidden="true" />
+      ))}
+      <span>{title} · {changes.length}</span>
+      {collapsible && <span className="sr-only">{isExpanded ? '，点击折叠' : '，点击展开'}</span>}
+    </>
+  )
+
   return (
     <section className="pb-2">
-      <div className="px-3 py-1 text-[11px] font-medium text-muted-foreground tabular-nums">{title} · {changes.length}</div>
-      <NonGitFileList changes={changes} sessionId={sessionId} onFileClick={onFileClick} />
+      {collapsible ? (
+        <button
+          type="button"
+          aria-expanded={isExpanded}
+          aria-controls={contentId}
+          className={cn(headerClassName, 'hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring')}
+          onClick={() => setIsExpanded((expanded) => !expanded)}
+        >
+          {headerContent}
+        </button>
+      ) : (
+        <div className={headerClassName}>{headerContent}</div>
+      )}
+      <div id={contentId} hidden={collapsible && !isExpanded}>
+        <NonGitFileList changes={changes} sessionId={sessionId} onFileClick={onFileClick} />
+      </div>
     </section>
   )
 }
